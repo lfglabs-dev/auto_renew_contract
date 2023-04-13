@@ -25,7 +25,7 @@ func renews(user: felt, domain: felt) -> (bool: felt) {
 }
 
 @storage_var
-func voted_upgrade(user: felt, update: felt) -> (bool: felt) {
+func voted_upgrade(user: felt, upgrade: felt) -> (bool: felt) {
 }
 
 //
@@ -41,7 +41,7 @@ func DomainRenewed(domain: felt, owner: felt, days: felt) {
 }
 
 @event
-func VotedForUpgrade(caller: felt, upgrade: felt) {
+func VotedUpgrade(caller: felt, upgrade: felt, vote: felt) {
 }
 
 @constructor
@@ -71,8 +71,8 @@ func is_renewing{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 // @param user User to get status of
 @view
 func has_voted_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    user: felt,
     upgrade: felt, 
-    user: felt
 ) -> (res: felt) {
     let (res) = voted_upgrade.read(user, upgrade);
     return (res,);
@@ -150,14 +150,11 @@ func vote_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     upgrade: felt,
 ) {
     let (caller) = get_caller_address();
-    let (has_voted) = voted_upgrade.read(caller, upgrade);
+    let (vote) = voted_upgrade.read(caller, upgrade);
 
-    with_attr error_message("Caller has already voted") {
-        assert has_voted = 0;
-    }
-
-    voted_upgrade.write(caller, upgrade, 1);
-    VotedForUpgrade.emit(caller, upgrade);
+    voted_upgrade.write(caller, upgrade, 1 - vote);
+    
+    VotedUpgrade.emit(caller, upgrade, 1 - vote);
 
     return ();
 }
