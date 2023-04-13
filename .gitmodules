@@ -1,0 +1,9 @@
+[submodule "lib/cairo_contracts"]
+	path = lib/cairo_contracts
+	url = https://github.com/OpenZeppelin/cairo-contracts.git
+[submodule "lib/starknetid"]
+	path = lib/starknetid
+	url = https://github.com/starknet-id/contract.git
+[submodule "lib/naming_contract"]
+	path = lib/naming_contract
+	url = https://github.com/starknet-id/naming_contract.git
