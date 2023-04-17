@@ -143,6 +143,17 @@ func renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     return ();
 }
 
+@external
+func batch_renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    domain_len: felt, domain: felt*,
+) {
+    if (domain_len == 0) {
+        return ();
+    }
+    renew(domain[0]);
+    return batch_renew(domain_len - 1, domain + 1);
+}
+
 // @notice Vote for an upgrade
 // @param upgrade Upgrade to vote for
 @external
@@ -153,7 +164,7 @@ func vote_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     let (vote) = voted_upgrade.read(caller, upgrade);
 
     voted_upgrade.write(caller, upgrade, 1 - vote);
-    
+
     VotedUpgrade.emit(caller, upgrade, 1 - vote);
 
     return ();
