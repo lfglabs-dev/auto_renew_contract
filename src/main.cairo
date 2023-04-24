@@ -21,7 +21,7 @@ func pricing_contract() -> (contract_address: felt) {
 }
 
 @storage_var
-func renews(user: felt, domain: felt) -> (bool: felt) {
+func renews(renewer: felt, domain: felt) -> (bool: felt) {
 }
 
 @storage_var
@@ -33,11 +33,11 @@ func voted_upgrade(user: felt, upgrade: felt) -> (bool: felt) {
 //
 
 @event
-func ToggledRenewal(domain: felt, caller: felt, value: felt) {
+func ToggledRenewal(domain: felt, renewer: felt, value: felt) {
 }
 
 @event
-func DomainRenewed(domain: felt, owner: felt, days: felt) {
+func DomainRenewed(domain: felt, renewer: felt, days: felt) {
 }
 
 @event
@@ -60,9 +60,9 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 @view
 func is_renewing{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     domain: felt, 
-    user: felt
+    renewer: felt
 ) -> (res: felt) {
-    let (res) = renews.read(user, domain);
+    let (res) = renews.read(renewer, domain);
     return (res,);
 }
 
@@ -92,10 +92,6 @@ func toggle_renewals{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     alloc_locals;
     let (caller) = get_caller_address();
     let (contract) = naming_contract.read();
-    let (owner) = Naming.domain_to_address(contract, 1, cast(new(domain), felt*));
-    with_attr error_message("Caller is not owner of domain") {
-        assert owner = caller;
-    }
 
     let (prev_renew) = renews.read(caller, domain);
     renews.write(caller, domain, 1 - prev_renew);
@@ -110,48 +106,55 @@ func toggle_renewals{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 // @dev callable by anyone, but will only renew if renewals are activated for domain
 @external
 func renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    root_domain: felt
+    root_domain: felt, renewer: felt,
 ) {
     alloc_locals;
     let (naming) = naming_contract.read(); 
-    let (owner) = Naming.domain_to_address(naming, 1, cast(new(root_domain), felt*));
-    let (can_renew) = renews.read(owner, root_domain);
+    let (can_renew) = renews.read(renewer, root_domain);
 
-    with_attr error_message("Owner has not activated renewals for this domain") {
+    with_attr error_message("Renewer has not activated renewals for this domain") {
         assert_not_zero(can_renew);
     }
 
     let (expiry) = Naming.domain_to_expiry(naming, 1, cast(new(root_domain), felt*));
     let (block_timestamp) = get_block_timestamp();
-    let time_remaining = expiry - block_timestamp;
     with_attr error_message("Domain is not set to expire within a month") {
-        assert_le(time_remaining, 86400 * 30);
+        assert_le(expiry, block_timestamp + 86400 * 30);
     }
 
     let (pricing) = pricing_contract.read();
     let (erc20, renewal_price) = Pricing.compute_renew_price(pricing, root_domain, 365);
 
     let (contract) = get_contract_address();
-    with_attr error_message("Error transferring tokens from owner to contract") {
-        IERC20.transferFrom(erc20, owner, contract, renewal_price);
+    with_attr error_message("Error transferring tokens from renewer to contract") {
+        IERC20.transferFrom(erc20, renewer, contract, renewal_price);
     }
 
     Naming.renew(naming, root_domain, 365);
     
-    DomainRenewed.emit(root_domain, owner, 365);
+    DomainRenewed.emit(root_domain, renewer, 365);
 
     return ();
 }
 
 @external
 func batch_renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    domain_len: felt, domain: felt*,
+    domain_len: felt, domain: felt*, renewer_len: felt, renewer: felt*
+) {
+    with_attr error_message("domain and renewer array must have same length") {
+        assert domain_len = renewer_len;
+    }
+    return _batch_renew_iter(domain_len, domain, renewer_len, renewer);
+}
+
+func _batch_renew_iter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    domain_len: felt, domain: felt*, renewer_len: felt, renewer: felt*
 ) {
     if (domain_len == 0) {
         return ();
     }
-    renew(domain[0]);
-    return batch_renew(domain_len - 1, domain + 1);
+    renew(domain[0], renewer[0]);
+    return _batch_renew_iter(domain_len - 1, domain + 1, renewer_len - 1, renewer + 1);
 }
 
 // @notice Vote for an upgrade

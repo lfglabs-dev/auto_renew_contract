@@ -11,10 +11,10 @@ namespace Renewal {
     func toggle_renewals(domain: felt) {
     }
 
-    func renew(root_domain: felt) {
+    func renew(root_domain: felt, renewer: felt) {
     }
 
-    func batch_renew(domain_len: felt, domain: felt*) {
+    func batch_renew(domain_len: felt, domain: felt*, renewer_len: felt, renewer: felt*) {
     }
 
     func vote_upgrade(upgrade: felt) {
