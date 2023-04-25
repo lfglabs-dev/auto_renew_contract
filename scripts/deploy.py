@@ -5,6 +5,7 @@ from starknet_py.net.gateway_client import GatewayClient
 from starknet_py.net.account.account import Account
 from starknet_py.net.signer.stark_curve_signer import KeyPair
 from starknet_py.contract import Contract
+from generate import increase_allowance, buy_domains, toggle_renewals
 
 import asyncio
 import json
@@ -22,6 +23,8 @@ chainid = StarknetChainId.TESTNET
 max_fee = int(1e16)
 deployer = Deployer()
 
+eth_token = 0x49D36570D4E46F48E99674BD3FCC84644DDD6B96F7C741B1562B82F9E004DC7
+TH0RGAL_STRING = 28235132438
 
 async def main():
     client: GatewayClient = GatewayClient(
@@ -51,7 +54,7 @@ async def main():
     await deploy_result.wait_for_acceptance()
     starknetid_contract = deploy_result.deployed_contract
     starknetid_addr = starknetid_contract.address
-    print("starknetid_addr:", hex(starknetid_addr))
+    print("starknetid_addr:", starknetid_addr)
 
     # Declare and deploy pricing contract
     impl_file = open("./build/pricing.json", "r")
@@ -60,49 +63,27 @@ async def main():
     )
     impl_file.close()
     await declare_result.wait_for_acceptance()
-    deploy_result = await declare_result.deploy(constructor_args={admin}, max_fee=int(1e16))
+    deploy_result = await declare_result.deploy(constructor_args={eth_token}, max_fee=int(1e16))
     await deploy_result.wait_for_acceptance()
     pricing_contract = deploy_result.deployed_contract
     pricing_addr = pricing_contract.address
-    print("pricing_addr:", hex(pricing_addr))
+    print("pricing_addr:", pricing_addr)
 
-    # Declare naming contract
+    # Declare and deploy naming contract
     impl_file = open("./build/naming.json", "r")
     declare_result = await Contract.declare(
         account=account, compiled_contract=impl_file.read(), max_fee=int(1e16)
     )
     impl_file.close()
     await declare_result.wait_for_acceptance()
-    naming_class_hash = declare_result.class_hash
-    print("naming_class_hash:", hex(naming_class_hash))
+    deploy_result = await declare_result.deploy(max_fee=int(1e16))
+    await deploy_result.wait_for_acceptance()
+    naming_contract = deploy_result.deployed_contract
+    naming_addr = naming_contract.address
+    print("naming_addr:", naming_addr)
 
-    # Declare proxy and deploy implementation
-    proxy_file = open("./build/proxy.json", "r")
-    proxy_content = proxy_file.read()
-    declare_proxy_tx = await account.sign_declare_transaction(
-        compiled_contract=proxy_content, max_fee=max_fee
-    )
-    proxy_file.close()
-    proxy_declaration = await client.declare(transaction=declare_proxy_tx)
-    proxy_contract_class_hash = proxy_declaration.class_hash
-    print("proxy class hash:", hex(proxy_contract_class_hash))
-
-    proxy_json = json.loads(proxy_content)
-    abi = proxy_json["abi"]
-    deploy_call, address = deployer.create_deployment_call(
-        class_hash=proxy_contract_class_hash,
-        abi=abi,
-        calldata={
-            "implementation_hash": naming_class_hash,
-            "selector": get_selector_from_name("initializer"),
-            "calldata": [starknetid_addr, pricing_addr, admin, 0],
-        },
-    )
-
-    resp = await account.execute(deploy_call, max_fee=int(1e16))
-    print("deployment txhash:", hex(resp.transaction_hash))
-    naming_address = address
-    print("proxied naming contract address:", hex(naming_address))
+    invocation = await naming_contract.functions["initializer"].invoke(starknetid_addr, pricing_addr, admin, 0, max_fee=int(1e16))
+    await invocation.wait_for_acceptance()
 
     # Deploy renewal contract
     impl_file = open("./build/main.json", "r")
@@ -111,11 +92,18 @@ async def main():
     )
     impl_file.close()
     await declare_result.wait_for_acceptance()
-    deploy_result = await declare_result.deploy(constructor_args={naming_address, pricing_addr}, max_fee=int(1e16))
+    deploy_result = await declare_result.deploy(max_fee=int(1e16))
     await deploy_result.wait_for_acceptance()
     renewal_contract = deploy_result.deployed_contract
     renewal_addr = renewal_contract.address
-    print("renewal_addr:", hex(renewal_addr))
+    print("renewal_addr:", renewal_addr)
+
+    invocation = await renewal_contract.functions["initializer"].invoke(admin, naming_addr, pricing_addr, max_fee=int(1e16))
+    await invocation.wait_for_acceptance()
+
+    increase_allowance(client, naming_addr)
+    buy_domains(client, 20, starknetid_addr, naming_addr)
+    toggle_renewals(client, 10, renewal_addr)
 
 
 if __name__ == "__main__":
