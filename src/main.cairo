@@ -13,6 +13,10 @@ from src.interface.pricing import Pricing
 //
 
 @storage_var
+func admin_address() -> (address: felt) {
+}
+
+@storage_var
 func naming_contract() -> (contract_address: felt) {
 }
 
@@ -21,7 +25,7 @@ func pricing_contract() -> (contract_address: felt) {
 }
 
 @storage_var
-func renews(renewer: felt, domain: felt) -> (bool: felt) {
+func is_renewing(renewer: felt, domain: felt) -> (bool: felt) {
 }
 
 @storage_var
@@ -33,24 +37,31 @@ func voted_upgrade(user: felt, upgrade: felt) -> (bool: felt) {
 //
 
 @event
-func ToggledRenewal(domain: felt, renewer: felt, value: felt) {
+func toggled_renewal(domain: felt, renewer: felt, value: felt) {
 }
 
 @event
-func DomainRenewed(domain: felt, renewer: felt, days: felt) {
+func domain_renewed(domain: felt, renewer: felt, days: felt) {
 }
 
 @event
-func VotedUpgrade(caller: felt, upgrade: felt, vote: felt) {
+func voted(caller: felt, upgrade: felt, vote: felt) {
 }
 
-@constructor
-func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+@external
+func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    admin: felt, 
     naming_address: felt, 
     pricing_address: felt
 ) {
+    // Can only be called if there is no admin
+    let (current_admin) = admin_address.read();
+    assert current_admin = 0;
+
+    admin_address.write(admin);
     naming_contract.write(naming_address);
     pricing_contract.write(pricing_address);
+
     return ();
 }
 
@@ -58,11 +69,11 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 // @param domain Domain to get status of
 // @param user User to get status of
 @view
-func is_renewing{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func will_renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     domain: felt, 
     renewer: felt
 ) -> (res: felt) {
-    let (res) = renews.read(renewer, domain);
+    let (res) = is_renewing.read(renewer, domain);
     return (res,);
 }
 
@@ -93,10 +104,10 @@ func toggle_renewals{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     let (caller) = get_caller_address();
     let (contract) = naming_contract.read();
 
-    let (prev_renew) = renews.read(caller, domain);
-    renews.write(caller, domain, 1 - prev_renew);
+    let (prev_renew) = is_renewing.read(caller, domain);
+    is_renewing.write(caller, domain, 1 - prev_renew);
 
-    ToggledRenewal.emit(domain, caller, 1 - prev_renew);
+    toggled_renewal.emit(domain, caller, 1 - prev_renew);
 
     return ();
 } 
@@ -110,7 +121,7 @@ func renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 ) {
     alloc_locals;
     let (naming) = naming_contract.read(); 
-    let (can_renew) = renews.read(renewer, root_domain);
+    let (can_renew) = is_renewing.read(renewer, root_domain);
 
     with_attr error_message("Renewer has not activated renewals for this domain") {
         assert_not_zero(can_renew);
@@ -132,7 +143,7 @@ func renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
     Naming.renew(naming, root_domain, 365);
     
-    DomainRenewed.emit(root_domain, renewer, 365);
+    domain_renewed.emit(root_domain, renewer, 365);
 
     return ();
 }
@@ -168,7 +179,7 @@ func vote_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
 
     voted_upgrade.write(caller, upgrade, 1 - vote);
 
-    VotedUpgrade.emit(caller, upgrade, 1 - vote);
+    voted.emit(caller, upgrade, 1 - vote);
 
     return ();
 }

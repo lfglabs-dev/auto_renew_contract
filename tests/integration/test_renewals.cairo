@@ -18,12 +18,185 @@ func __setup__{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}(
         context.naming_contract = deploy_contract("./lib/cairo_contracts/src/openzeppelin/upgrades/presets/Proxy.cairo", [logic_contract_class_hash,
             get_selector_from_name("initializer"), 4, 
             context.starknet_id_contract, context.pricing_contract, 456, 0]).contract_address
-        
-        context.renewal_contract = deploy_contract("./src/main.cairo", [context.naming_contract, context.pricing_contract]).contract_address
+        context.renewal_contract = deploy_contract("./src/main.cairo").contract_address
     %}
+    initize_renewal_contract();
     return ();
 }
 
+@external
+func test_toggle_renewal{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
+    buy_domain(365);
+    tempvar renewal_contract;
+    %{
+        ids.renewal_contract = context.renewal_contract
+        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
+    %}
+
+    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
+    
+    // Test if the automatic renewal has been toggled for this domain
+    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    assert renew = 1;
+
+    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
+
+    // Test toggling automatic renewal twice for a domain disables it
+    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    assert renew = 0;
+
+    %{ stop_prank_callable() %}
+
+    return ();
+}
+
+@external
+func test_renews_fail_not_toggled{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
+    buy_domain(365);
+    tempvar renewal_contract;
+    // Should revert because renewer has not toggled renewals for this domain
+    %{
+        ids.renewal_contract = context.renewal_contract
+        expect_revert(error_message="Renewer has not activated renewals for this domain")
+    %}
+    Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
+
+    return ();
+}
+
+
+@external
+func test_renew_fail_expiry{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
+    buy_domain(60);
+    tempvar renewal_contract;
+    // Should revert because domain is not set to expire within a month
+    %{
+        ids.renewal_contract = context.renewal_contract
+        expect_revert(error_message="Domain is not set to expire within a month")
+        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
+    %}
+
+    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
+    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    assert renew = 1;
+
+    %{ stop_prank_callable() %}
+
+    Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
+
+    return ();
+}
+
+@external
+func test_renew_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
+    buy_domain(60);
+    tempvar renewal_contract;
+    tempvar naming;
+    %{
+        ids.renewal_contract = context.renewal_contract
+        ids.naming = context.naming_contract
+        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
+        warp(5180000, context.renewal_contract)
+        stop_mock = mock_call(123, "transferFrom", [1])
+    %}
+
+    // Test if the automatic renewal has been toggled for this domain
+    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
+    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    assert renew = 1;
+
+    %{ stop_prank_callable() %}
+
+    // Test renew domain for 1 year
+    Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
+    assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
+
+    %{ stop_mock() %}
+
+    return ();
+}
+
+@external
+func test_renew_expired_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
+    buy_domain(60);
+    tempvar renewal_contract;
+    tempvar naming;
+    %{
+        ids.renewal_contract = context.renewal_contract
+        ids.naming = context.naming_contract
+        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
+        warp(10000000, context.renewal_contract)
+        stop_mock = mock_call(123, "transferFrom", [1])
+    %}
+
+    // Test if the automatic renewal has been toggled for this domain
+    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
+    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    assert renew = 1;
+
+    %{ stop_prank_callable() %}
+
+    // Test renew domain for 1 year even though domain was expired
+    Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
+    assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
+
+    %{ stop_mock() %}
+
+    return ();
+}
+
+@external
+func test_renew_domains{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
+    alloc_locals;
+    buy_domain(60);
+    tempvar renewal_contract;
+    tempvar naming;
+    %{
+        ids.renewal_contract = context.renewal_contract
+        ids.naming = context.naming_contract
+        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
+        warp(5180000, context.renewal_contract)
+        stop_mock = mock_call(123, "transferFrom", [1])
+    %}
+
+    // Test if the automatic renewal has been toggled for both domains
+    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
+    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    assert renew = 1;
+
+    Renewal.toggle_renewals(renewal_contract, ANOTHER_DOMAIN);
+    let (renew_2) = Renewal.will_renew(renewal_contract, ANOTHER_DOMAIN, 456);
+    assert renew_2 = 1;
+
+    %{ stop_prank_callable() %}
+
+    // Test renewing both domains for 1 year
+    Renewal.batch_renew(renewal_contract, 2, cast(new(TH0RGAL_STRING, ANOTHER_DOMAIN), felt*), 2, cast(new(456, 456), felt*));
+
+    assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
+    assert_expiry(ANOTHER_DOMAIN, (60 * 86400) + (365 * 86400) + 1);
+
+    %{ stop_mock() %}
+
+    return ();
+}
+
+
+func initize_renewal_contract{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
+    alloc_locals;
+    tempvar naming_contract;
+    tempvar pricing_contract;
+    tempvar renewal_contract;
+    %{
+        ids.renewal_contract = context.renewal_contract
+        ids.naming_contract = context.naming_contract
+        ids.pricing_contract = context.pricing_contract
+    %}
+    Renewal.initializer(renewal_contract, 123, naming_contract, pricing_contract);
+    return ();
+}
+
+// util function to buy domains for a given number of days
 func buy_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}(days: felt) {
     alloc_locals;
     tempvar starknet_id_contract;
@@ -51,159 +224,7 @@ func buy_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}
     return ();
 }
 
-@external
-func test_toggle_renewal{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
-    buy_domain(365);
-    tempvar renewal_contract;
-    %{
-        ids.renewal_contract = context.renewal_contract
-        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
-    %}
-
-    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-
-    let (will_renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
-    assert will_renew = 1;
-
-    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-
-    let (wont_renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
-    assert wont_renew = 0;
-
-    %{ stop_prank_callable() %}
-
-    return ();
-}
-
-@external
-func test_renews_fail_not_toggled{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
-    buy_domain(365);
-    tempvar renewal_contract;
-    %{
-        ids.renewal_contract = context.renewal_contract
-        expect_revert(error_message="Renewer has not activated renewals for this domain")
-    %}
-    let (wont_renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
-    assert wont_renew = 0;
-
-    Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
-
-    return ();
-}
-
-
-@external
-func test_renew_fail_expiry{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
-    buy_domain(60);
-    tempvar renewal_contract;
-    %{
-        ids.renewal_contract = context.renewal_contract
-        expect_revert(error_message="Domain is not set to expire within a month")
-        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
-    %}
-
-    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-    let (will_renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
-    assert will_renew = 1;
-
-    %{ stop_prank_callable() %}
-
-    Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
-
-    return ();
-}
-
-@external
-func test_renew_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
-    buy_domain(60);
-    tempvar renewal_contract;
-    tempvar naming;
-    %{
-        ids.renewal_contract = context.renewal_contract
-        ids.naming = context.naming_contract
-        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
-        warp(5180000, context.renewal_contract)
-        stop_mock = mock_call(123, "transferFrom", [1])
-    %}
-
-    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-    let (will_renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
-    assert will_renew = 1;
-
-    %{ stop_prank_callable() %}
-
-    Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
-
-    assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
-
-    %{ stop_mock() %}
-
-    return ();
-}
-
-@external
-func test_renew_expired_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
-    buy_domain(60);
-    tempvar renewal_contract;
-    tempvar naming;
-    %{
-        ids.renewal_contract = context.renewal_contract
-        ids.naming = context.naming_contract
-        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
-        warp(10000000, context.renewal_contract)
-        stop_mock = mock_call(123, "transferFrom", [1])
-    %}
-
-    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-    let (will_renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
-    assert will_renew = 1;
-
-    %{ stop_prank_callable() %}
-
-    Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
-
-    assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
-
-    %{ stop_mock() %}
-
-    return ();
-}
-
-@external
-func test_renew_domains{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
-    alloc_locals;
-    buy_domain(60);
-    tempvar renewal_contract;
-    tempvar naming;
-    %{
-        ids.renewal_contract = context.renewal_contract
-        ids.naming = context.naming_contract
-        stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
-        warp(5180000, context.renewal_contract)
-        stop_mock = mock_call(123, "transferFrom", [1])
-    %}
-
-    Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-    let (will_renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
-    assert will_renew = 1;
-
-    Renewal.toggle_renewals(renewal_contract, ANOTHER_DOMAIN);
-    let (will_renew_2) = Renewal.is_renewing(renewal_contract, ANOTHER_DOMAIN, 456);
-    assert will_renew_2 = 1;
-
-    %{ stop_prank_callable() %}
-
-    Renewal.batch_renew(renewal_contract, 2, cast(new(TH0RGAL_STRING, ANOTHER_DOMAIN), felt*), 2, cast(new(456, 456), felt*));
-
-    assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
-    assert_expiry(ANOTHER_DOMAIN, (60 * 86400) + (365 * 86400) + 1);
-
-    %{ stop_mock() %}
-
-    return ();
-}
-
-
+// util function to assert domain expiry while testing
 func assert_expiry{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}(domain: felt, expected: felt) {
     tempvar naming;
     %{ 
