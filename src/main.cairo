@@ -33,7 +33,11 @@ func is_renewing(renewer: felt, domain: felt) -> (bool: felt) {
 }
 
 @storage_var
-func voted_upgrade(user: felt, upgrade: felt) -> (bool: felt) {
+func voted_upgrade(user: felt, upgrade_id: felt, implementation_hash: felt) -> (bool: felt) {
+}
+
+@storage_var
+func blacklisted(upgrade_id: felt) -> (bool: felt) {
 }
 
 //
@@ -49,7 +53,7 @@ func domain_renewed(domain: felt, renewer: felt, days: felt) {
 }
 
 @event
-func voted(caller: felt, upgrade: felt, vote: felt) {
+func voted(caller: felt, upgrade_id: felt, implementation_hash: felt, vote: felt) {
 }
 
 @external
@@ -88,9 +92,10 @@ func will_renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 @view
 func has_voted_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     user: felt,
-    upgrade: felt, 
+    upgrade_id: felt, 
+    implementation_hash: felt,
 ) -> (res: felt) {
-    let (res) = voted_upgrade.read(user, upgrade);
+    let (res) = voted_upgrade.read(user, upgrade_id, implementation_hash);
     return (res,);
 }
 
@@ -177,7 +182,7 @@ func _batch_renew_iter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 // @param upgrade Upgrade to vote for
 @external
 func vote_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    upgrade: felt, vote: felt
+    upgrade_id: felt, implementation_hash: felt, vote: felt
 ) {
     let (caller) = get_caller_address();
 
@@ -185,8 +190,8 @@ func vote_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
         assert vote * (vote - 1) = 0;
     }
 
-    voted_upgrade.write(caller, upgrade, vote);
-    voted.emit(caller, upgrade, 1 - vote);
+    voted_upgrade.write(caller, upgrade_id, implementation_hash, vote);
+    voted.emit(caller, upgrade_id, implementation_hash, vote);
     return ();
 }
 
@@ -194,19 +199,25 @@ func vote_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
 // @param new_implementation hash
 @external
 func upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    new_implementation: felt,
+    upgrade_id: felt, implementation_hash: felt,
 ) {
-    let (vote_sum) = _upgrade_iter(new_implementation, VOTERS_LEN, 0);
+    with_attr error_message("Upgrade is blacklisted") {
+        let (is_blacklisted) = blacklisted.read(upgrade_id);
+        assert is_blacklisted = 0;
+    }
+    let (vote_sum) = _upgrade_iter(upgrade_id, implementation_hash, VOTERS_LEN, 0);
     with_attr error_message("Not enough votes to upgrade") {
         assert_le(VOTING_QUORUM, vote_sum);
     }
 
-    Proxy._set_implementation_hash(new_implementation);
+    Proxy._set_implementation_hash(implementation_hash);
+    blacklisted.write(upgrade_id, 1);
     return ();
 }
 
 func _upgrade_iter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    upgrade: felt,
+    upgrade_id: felt,
+    implementation_hash: felt,
     voters: felt,
     vote_sum: felt,
 ) -> (vote_sum: felt) {
@@ -215,6 +226,6 @@ func _upgrade_iter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     }
     let (voters_data_start_label) = get_label_location(voters_data_start);
     let voters_arr = cast(voters_data_start_label, felt*);
-    let (vote) = voted_upgrade.read(voters_arr[voters - 1], upgrade);
-    return _upgrade_iter(upgrade, voters - 1, vote_sum + vote);
+    let (vote) = voted_upgrade.read(voters_arr[voters - 1], upgrade_id, implementation_hash);
+    return _upgrade_iter(upgrade_id, implementation_hash, voters - 1, vote_sum + vote);
 }

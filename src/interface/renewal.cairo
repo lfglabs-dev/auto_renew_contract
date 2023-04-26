@@ -8,7 +8,7 @@ namespace Renewal {
     func will_renew(domain: felt, user: felt) -> (res: felt) {
     }
 
-    func has_voted_upgrade(upgrade: felt, user: felt) -> (res: felt) {
+    func has_voted_upgrade(upgrade_id: felt, new_implementation: felt, user: felt) -> (res: felt) {
     }
 
     func toggle_renewals(domain: felt) {
@@ -20,9 +20,9 @@ namespace Renewal {
     func batch_renew(domain_len: felt, domain: felt*, renewer_len: felt, renewer: felt*) {
     }
 
-    func vote_upgrade(upgrade: felt, vote: felt) {
+    func vote_upgrade(upgrade_id: felt, new_implementation: felt, vote: felt) {
     }
 
-    func upgrade(new_implementation: felt) {
+    func upgrade(upgrade_id: felt, new_implementation: felt) {
     }
 }
