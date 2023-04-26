@@ -3,10 +3,14 @@ from starkware.cairo.common.math import assert_nn
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, get_contract_address
 from starkware.cairo.common.math import assert_not_zero, assert_le
+from starkware.cairo.common.registers import get_label_location
 
+from cairo_contracts.src.openzeppelin.upgrades.library import Proxy
 from lib.cairo_contracts.src.openzeppelin.token.erc20.IERC20 import IERC20
+
 from src.interface.naming import Naming
 from src.interface.pricing import Pricing
+from src.constants import VOTERS_LEN, VOTING_QUORUM, voters_data_start
 
 //
 // Storage
@@ -62,6 +66,7 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     naming_contract.write(naming_address);
     pricing_contract.write(pricing_address);
 
+    Proxy.initializer(admin);
     return ();
 }
 
@@ -172,22 +177,44 @@ func _batch_renew_iter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 // @param upgrade Upgrade to vote for
 @external
 func vote_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    upgrade: felt,
+    upgrade: felt, vote: felt
 ) {
     let (caller) = get_caller_address();
-    let (vote) = voted_upgrade.read(caller, upgrade);
 
-    voted_upgrade.write(caller, upgrade, 1 - vote);
+    with_attr error_message("Votes can either be 1 or 0") {
+        assert vote * (vote - 1) = 0;
+    }
 
+    voted_upgrade.write(caller, upgrade, vote);
     voted.emit(caller, upgrade, 1 - vote);
-
     return ();
 }
 
-// @external
-// func upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-//     upgrade: felt,
-//     hash: felt,
-// ) {
-//     return ();
-// }
+// @notice Upgrade implementation
+// @param new_implementation hash
+@external
+func upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    new_implementation: felt,
+) {
+    let (vote_sum) = _upgrade_iter(new_implementation, VOTERS_LEN, 0);
+    with_attr error_message("Not enough votes to upgrade") {
+        assert_le(VOTING_QUORUM, vote_sum);
+    }
+
+    Proxy._set_implementation_hash(new_implementation);
+    return ();
+}
+
+func _upgrade_iter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    upgrade: felt,
+    voters: felt,
+    vote_sum: felt,
+) -> (vote_sum: felt) {
+    if (voters == 0) {
+        return (vote_sum,);
+    }
+    let (voters_data_start_label) = get_label_location(voters_data_start);
+    let voters_arr = cast(voters_data_start_label, felt*);
+    let (vote) = voted_upgrade.read(voters_arr[voters - 1], upgrade);
+    return _upgrade_iter(upgrade, voters - 1, vote_sum + vote);
+}

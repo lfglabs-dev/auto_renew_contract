@@ -20,6 +20,9 @@ namespace Renewal {
     func batch_renew(domain_len: felt, domain: felt*, renewer_len: felt, renewer: felt*) {
     }
 
-    func vote_upgrade(upgrade: felt) {
+    func vote_upgrade(upgrade: felt, vote: felt) {
+    }
+
+    func upgrade(new_implementation: felt) {
     }
 }
