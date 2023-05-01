@@ -6,6 +6,7 @@ from starknet_py.net.account.account import Account
 from starknet_py.net.signer.stark_curve_signer import KeyPair
 from starknet_py.contract import Contract
 from constants import DEVNET_ACCOUNTS, erc20_addr, ENCODED_DOMAINS
+from utils import encode
 
 import random
 chainid = StarknetChainId.TESTNET
@@ -47,14 +48,20 @@ async def buy_domains(client, from_, to, starknetid_contract_addr, naming_contra
         await invocation.wait_for_acceptance()
 
         # buy domain
-        print("Buy domain: ", ENCODED_DOMAINS[i - 1])
-        invocation = await naming_contract.functions["buy"].invoke(i + 20, ENCODED_DOMAINS[i - 1], 60, 0, account.address, max_fee=int(1e16))
+        domain = encode(str(i))
+        print("Buy domain: ", str(i) + ".stark")
+        invocation = await naming_contract.functions["buy"].invoke(i + 20, domain, 60, 0, account.address, max_fee=int(1e16))
+        await invocation.wait_for_acceptance()
+
+        # Set as main domain
+        invocation = await naming_contract.functions["set_address_to_domain"].invoke([domain], max_fee=int(1e16))
         await invocation.wait_for_acceptance()
 
 
 async def toggle_renewals(client, _from, to, renewal_contract_addr):
     for i in range(_from, to):
-        print("Toggled renewal for domain: ", ENCODED_DOMAINS[i - 1])
+        domain = encode(str(i))
+        print("Toggled renewal for domain: ", domain)
         account_index = random.randint(0, len(DEVNET_ACCOUNTS) - 1)
         account = Account(
             client=client,
@@ -63,5 +70,5 @@ async def toggle_renewals(client, _from, to, renewal_contract_addr):
             chain=chainid
         )
         renewal_contract = await Contract.from_address(provider=account, address=renewal_contract_addr)
-        invocation = await renewal_contract.functions["toggle_renewals"].invoke(ENCODED_DOMAINS[i - 1], max_fee=int(1e16))
+        invocation = await renewal_contract.functions["toggle_renewals"].invoke(domain, max_fee=int(1e16))
         await invocation.wait_for_acceptance()
