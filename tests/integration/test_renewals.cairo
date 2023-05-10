@@ -36,13 +36,13 @@ func test_toggle_renewal{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: Hash
     Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
     
     // Test if the automatic renewal has been toggled for this domain
-    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    let (renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
     assert renew = 1;
 
     Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
 
     // Test toggling automatic renewal twice for a domain disables it
-    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    let (renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
     assert renew = 0;
 
     %{ stop_prank_callable() %}
@@ -77,7 +77,7 @@ func test_renew_fail_expiry{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: H
     %}
 
     Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    let (renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
     assert renew = 1;
 
     %{ stop_prank_callable() %}
@@ -102,7 +102,7 @@ func test_renew_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBu
 
     // Test if the automatic renewal has been toggled for this domain
     Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    let (renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
     assert renew = 1;
 
     %{ stop_prank_callable() %}
@@ -131,7 +131,7 @@ func test_renew_expired_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr
 
     // Test if the automatic renewal has been toggled for this domain
     Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    let (renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
     assert renew = 1;
 
     %{ stop_prank_callable() %}
@@ -161,11 +161,11 @@ func test_renew_domains{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashB
 
     // Test if the automatic renewal has been toggled for both domains
     Renewal.toggle_renewals(renewal_contract, TH0RGAL_STRING);
-    let (renew) = Renewal.will_renew(renewal_contract, TH0RGAL_STRING, 456);
+    let (renew) = Renewal.is_renewing(renewal_contract, TH0RGAL_STRING, 456);
     assert renew = 1;
 
     Renewal.toggle_renewals(renewal_contract, ANOTHER_DOMAIN);
-    let (renew_2) = Renewal.will_renew(renewal_contract, ANOTHER_DOMAIN, 456);
+    let (renew_2) = Renewal.is_renewing(renewal_contract, ANOTHER_DOMAIN, 456);
     assert renew_2 = 1;
 
     %{ stop_prank_callable() %}

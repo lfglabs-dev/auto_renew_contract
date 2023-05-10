@@ -28,29 +28,13 @@ func test_vote_upgrade{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBu
     %}
 
     // Test vote for upgrade
-    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION, 1);
+    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION);
     let (vote) = Renewal.has_voted_upgrade(renewal_contract, 123, UPGRADE_ID, NEW_IMPLEMENTATION);
     assert vote = 1;
 
     %{ stop_prank_callable() %}
     return ();
 }
-
-@external
-func test_vote_upgrade_fail{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
-    tempvar renewal_contract;
-    %{
-        ids.renewal_contract = context.renewal_contract
-        stop_prank_callable = start_prank(123, target_contract_address=ids.renewal_contract)
-        expect_revert(error_message="Votes can either be 1 or 0")
-    %}
-    // Should revert because vote value is incorrect
-    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION, 3);
-
-    %{ stop_prank_callable() %}
-    return ();
-}
-
 
 @external
 func test_upgrade_failed{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
@@ -116,17 +100,17 @@ func generate_votes{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuilt
         ids.renewal_contract = context.renewal_contract
         stop_prank_callable = start_prank(123, target_contract_address=ids.renewal_contract)
     %}
-    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION, 1);
+    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION);
     %{ 
         stop_prank_callable() 
         stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
     %}
-    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION, 1);
+    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION);
     %{ 
         stop_prank_callable() 
         stop_prank_callable = start_prank(789, target_contract_address=ids.renewal_contract)
     %}
-    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION, 1);
+    Renewal.vote_upgrade(renewal_contract, UPGRADE_ID, NEW_IMPLEMENTATION);
     %{ stop_prank_callable()  %}
     return ();
 }

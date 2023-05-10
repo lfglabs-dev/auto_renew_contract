@@ -29,7 +29,7 @@ func pricing_contract() -> (contract_address: felt) {
 }
 
 @storage_var
-func is_renewing(renewer: felt, domain: felt) -> (bool: felt) {
+func _is_renewing(renewer: felt, domain: felt) -> (bool: felt) {
 }
 
 @storage_var
@@ -78,11 +78,11 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 // @param domain Domain to get status of
 // @param user User to get status of
 @view
-func will_renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func is_renewing{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     domain: felt, 
     renewer: felt
 ) -> (res: felt) {
-    let (res) = is_renewing.read(renewer, domain);
+    let (res) = _is_renewing.read(renewer, domain);
     return (res,);
 }
 
@@ -112,10 +112,9 @@ func toggle_renewals{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 ) {
     alloc_locals;
     let (caller) = get_caller_address();
-    let (contract) = naming_contract.read();
 
-    let (prev_renew) = is_renewing.read(caller, domain);
-    is_renewing.write(caller, domain, 1 - prev_renew);
+    let (prev_renew) = _is_renewing.read(caller, domain);
+    _is_renewing.write(caller, domain, 1 - prev_renew);
 
     toggled_renewal.emit(domain, caller, 1 - prev_renew);
 
@@ -131,7 +130,7 @@ func renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 ) {
     alloc_locals;
     let (naming) = naming_contract.read(); 
-    let (can_renew) = is_renewing.read(renewer, root_domain);
+    let (can_renew) = _is_renewing.read(renewer, root_domain);
 
     with_attr error_message("Renewer has not activated renewals for this domain") {
         assert_not_zero(can_renew);
@@ -182,16 +181,12 @@ func _batch_renew_iter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 // @param upgrade Upgrade to vote for
 @external
 func vote_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    upgrade_id: felt, implementation_hash: felt, vote: felt
+    upgrade_id: felt, implementation_hash: felt
 ) {
     let (caller) = get_caller_address();
-
-    with_attr error_message("Votes can either be 1 or 0") {
-        assert vote * (vote - 1) = 0;
-    }
-
-    voted_upgrade.write(caller, upgrade_id, implementation_hash, vote);
-    voted.emit(caller, upgrade_id, implementation_hash, vote);
+    let (prev_vote) = voted_upgrade.read(caller, upgrade_id, implementation_hash);
+    voted_upgrade.write(caller, upgrade_id, implementation_hash, 1 - prev_vote);
+    voted.emit(caller, upgrade_id, implementation_hash, 1 - prev_vote);
     return ();
 }
 
