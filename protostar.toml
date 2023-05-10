@@ -1,7 +1,7 @@
 [project]
 protostar-version = "0.9.1"
 lib-path = "lib"
-cairo-path = ["lib", "./lib/cairo_contracts/src", "./lib/starknetid/src", "./lib/naming_contract/src"]
+cairo-path = ["lib", "./lib/cairo_contracts/src", "./lib/starknetid", "./lib/naming_contract"]
 
 [contracts]
 main = ["src/main.cairo"]
