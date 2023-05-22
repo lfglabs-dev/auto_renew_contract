@@ -4,6 +4,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, get_contract_address
 from starkware.cairo.common.math import assert_not_zero, assert_le
 from starkware.cairo.common.registers import get_label_location
+from starkware.cairo.common.uint256 import Uint256
 
 from cairo_contracts.src.openzeppelin.upgrades.library import Proxy
 from lib.cairo_contracts.src.openzeppelin.token.erc20.IERC20 import IERC20
@@ -149,6 +150,9 @@ func renew{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     with_attr error_message("Error transferring tokens from renewer to contract") {
         IERC20.transferFrom(erc20, renewer, contract, renewal_price);
     }
+
+    // approve naming contract to transfer tokens
+    IERC20.approve(erc20, naming, renewal_price);
 
     Naming.renew(naming, root_domain, 365);
     
