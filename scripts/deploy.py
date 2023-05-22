@@ -97,9 +97,10 @@ async def main():
     renewal_addr = renewal_contract.address
     print("renewal_addr:", renewal_addr)
 
-    invocation = await renewal_contract.functions["initializer"].invoke(admin, naming_addr, pricing_addr, max_fee=int(1e16))
+    invocation = await renewal_contract.functions["initializer"].invoke(admin, naming_addr, pricing_addr, eth_token, max_fee=int(1e16))
     await invocation.wait_for_acceptance()
 
+    await increase_allowance(client, naming_addr)
     await increase_allowance(client, renewal_addr)
     await buy_domains(client, 1, 10, starknetid_addr, naming_addr)
     await toggle_renewals(client, 1, 10, renewal_addr)

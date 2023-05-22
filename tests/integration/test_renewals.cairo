@@ -98,7 +98,6 @@ func test_renew_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBu
         stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
         warp(5180000, context.renewal_contract)
         stop_mock = mock_call(123, "transferFrom", [1])
-        stop_mock_approve = mock_call(123, "approve", [1])
     %}
 
     // Test if the automatic renewal has been toggled for this domain
@@ -112,10 +111,7 @@ func test_renew_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBu
     Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
     assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
 
-    %{ 
-        stop_mock() 
-        stop_mock_approve()
-    %}
+    %{ stop_mock() %}
 
     return ();
 }
@@ -131,7 +127,6 @@ func test_renew_expired_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr
         stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
         warp(10000000, context.renewal_contract)
         stop_mock = mock_call(123, "transferFrom", [1])
-        stop_mock_approve = mock_call(123, "approve", [1])
     %}
 
     // Test if the automatic renewal has been toggled for this domain
@@ -145,10 +140,7 @@ func test_renew_expired_domain{syscall_ptr: felt*, range_check_ptr, pedersen_ptr
     Renewal.renew(renewal_contract, TH0RGAL_STRING, 456);
     assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
 
-    %{ 
-        stop_mock() 
-        stop_mock_approve()
-    %}
+    %{ stop_mock() %}
 
     return ();
 }
@@ -165,7 +157,6 @@ func test_renew_domains{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashB
         stop_prank_callable = start_prank(456, target_contract_address=ids.renewal_contract)
         warp(5180000, context.renewal_contract)
         stop_mock = mock_call(123, "transferFrom", [1])
-        stop_mock_approve = mock_call(123, "approve", [1])
     %}
 
     // Test if the automatic renewal has been toggled for both domains
@@ -185,14 +176,10 @@ func test_renew_domains{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashB
     assert_expiry(TH0RGAL_STRING, (60 * 86400) + (365 * 86400) + 1);
     assert_expiry(ANOTHER_DOMAIN, (60 * 86400) + (365 * 86400) + 1);
 
-    %{ 
-        stop_mock() 
-        stop_mock_approve()
-    %}
+    %{ stop_mock() %}
 
     return ();
 }
-
 
 func initize_renewal_contract{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
     alloc_locals;
@@ -203,8 +190,11 @@ func initize_renewal_contract{syscall_ptr: felt*, range_check_ptr, pedersen_ptr:
         ids.renewal_contract = context.renewal_contract
         ids.naming_contract = context.naming_contract
         ids.pricing_contract = context.pricing_contract
+        stop_mock = mock_call(1, "approve", [1])
     %}
-    Renewal.initializer(renewal_contract, 123, naming_contract, pricing_contract);
+    Renewal.initializer(renewal_contract, 123, naming_contract, pricing_contract, 1);
+
+    %{ stop_mock() %}
     return ();
 }
 

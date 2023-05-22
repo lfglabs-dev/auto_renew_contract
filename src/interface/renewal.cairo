@@ -2,7 +2,7 @@
 
 @contract_interface
 namespace Renewal {
-    func initializer(admin: felt, naming_address: felt, pricing_address: felt) {
+    func initializer(admin: felt, naming_address: felt, pricing_address: felt, erc20_address: felt) {
     }
     
     func is_renewing(domain: felt, user: felt) -> (res: felt) {
