@@ -4,6 +4,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, get_contract_address
 from starkware.cairo.common.math import assert_not_zero, assert_le
 from starkware.cairo.common.registers import get_label_location
+from starkware.cairo.common.uint256 import Uint256, uint256_not
 
 from cairo_contracts.src.openzeppelin.upgrades.library import Proxy
 from lib.cairo_contracts.src.openzeppelin.token.erc20.IERC20 import IERC20
@@ -60,7 +61,8 @@ func voted(caller: felt, upgrade_id: felt, implementation_hash: felt, vote: felt
 func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     admin: felt, 
     naming_address: felt, 
-    pricing_address: felt
+    pricing_address: felt,
+    erc20_address: felt,
 ) {
     // Can only be called if there is no admin
     let (current_admin) = admin_address.read();
@@ -71,6 +73,11 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     pricing_contract.write(pricing_address);
 
     Proxy.initializer(admin);
+
+    // approve naming contract to transfer tokens
+    let (infinite_approval) = uint256_not(Uint256(0, 0));
+    IERC20.approve(erc20_address, naming_address, infinite_approval);
+    
     return ();
 }
 

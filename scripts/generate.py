@@ -5,7 +5,7 @@ from starknet_py.net.gateway_client import GatewayClient
 from starknet_py.net.account.account import Account
 from starknet_py.net.signer.stark_curve_signer import KeyPair
 from starknet_py.contract import Contract
-from constants import DEVNET_ACCOUNTS, erc20_addr, ENCODED_DOMAINS
+from constants import DEVNET_ACCOUNTS, erc20_addr
 from utils import encode
 
 import random
@@ -13,7 +13,7 @@ chainid = StarknetChainId.TESTNET
 max_fee = int(1e16)
 deployer = Deployer()
 
-async def increase_allowance(client, naming_contract_addr):
+async def increase_allowance(client, renewer_contract_addr):
     # Set approval to naming_contract for all existing accounts
     for j in range(0, len(DEVNET_ACCOUNTS)):
         account = DEVNET_ACCOUNTS[j]
@@ -25,7 +25,7 @@ async def increase_allowance(client, naming_contract_addr):
         )
         print("approval for account: ", hex(account.address))
         erc20_contract = await Contract.from_address(provider=account, address=erc20_addr)
-        invocation = await erc20_contract.functions["approve"].invoke(naming_contract_addr, 900000000000000000000, max_fee=int(1e16))
+        invocation = await erc20_contract.functions["approve"].invoke(renewer_contract_addr, 100000000000000000000, max_fee=int(1e16))
         await invocation.wait_for_acceptance()
 
 async def buy_domains(client, from_, to, starknetid_contract_addr, naming_contract_addr):
@@ -44,13 +44,13 @@ async def buy_domains(client, from_, to, starknetid_contract_addr, naming_contra
 
         # Mint starknetid
         print("Mint identity: ", i)
-        invocation = await starknetid_contract.functions["mint"].invoke(i + 20, max_fee=int(1e16))
+        invocation = await starknetid_contract.functions["mint"].invoke(i, max_fee=int(1e16))
         await invocation.wait_for_acceptance()
 
-        # buy domain
+        # buy domain for 60 days
         domain = encode(str(i))
         print("Buy domain: ", str(i) + ".stark")
-        invocation = await naming_contract.functions["buy"].invoke(i + 20, domain, 60, 0, account.address, max_fee=int(1e16))
+        invocation = await naming_contract.functions["buy"].invoke(i, domain, 60, 0, account.address, max_fee=int(1e16))
         await invocation.wait_for_acceptance()
 
         # Set as main domain

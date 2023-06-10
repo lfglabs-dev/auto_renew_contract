@@ -181,7 +181,6 @@ func test_renew_domains{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashB
     return ();
 }
 
-
 func initize_renewal_contract{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}() {
     alloc_locals;
     tempvar naming_contract;
@@ -191,8 +190,11 @@ func initize_renewal_contract{syscall_ptr: felt*, range_check_ptr, pedersen_ptr:
         ids.renewal_contract = context.renewal_contract
         ids.naming_contract = context.naming_contract
         ids.pricing_contract = context.pricing_contract
+        stop_mock = mock_call(1, "approve", [1])
     %}
-    Renewal.initializer(renewal_contract, 123, naming_contract, pricing_contract);
+    Renewal.initializer(renewal_contract, 123, naming_contract, pricing_contract, 1);
+
+    %{ stop_mock() %}
     return ();
 }
 
