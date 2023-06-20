@@ -106,6 +106,14 @@ func has_voted_upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
     return (res,);
 }
 
+@view
+func get_contracts{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+) -> (naming: felt, pricing: felt) {
+    let (naming) = naming_contract.read();
+    let (pricing) = pricing_contract.read();
+    return (naming, pricing,);
+}
+
 //
 // Externals
 //
