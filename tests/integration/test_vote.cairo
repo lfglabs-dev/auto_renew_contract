@@ -15,7 +15,7 @@ func __setup__{syscall_ptr: felt*, range_check_ptr, pedersen_ptr: HashBuiltin*}(
         context.renewal_contract = deploy_contract("./src/main.cairo").contract_address
         ids.renewal_contract = context.renewal_contract
     %}
-    Renewal.initializer(renewal_contract, 123, 11111, 22222);
+    Renewal.initializer(renewal_contract, 123, 11111, 22222, 3333);
     return ();
 }
 

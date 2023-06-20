@@ -13,11 +13,10 @@ import json
 argv = sys.argv
 
 deployer_account_addr = (
-    0x048F24D0D0618FA31813DB91A45D8BE6C50749E5E19EC699092CE29ABE809294
+    0x00a00373A00352aa367058555149b573322910D54FCDf3a926E3E56D0dCb4b0c
 )
 deployer_account_private_key = int(argv[1])
-deployer_account_public_key = int(argv[2])
-admin = 0x048F24D0D0618FA31813DB91A45D8BE6C50749E5E19EC699092CE29ABE809294
+admin = 0x00a00373A00352aa367058555149b573322910D54FCDf3a926E3E56D0dCb4b0c
 # TESTNET: https://alpha4.starknet.io/
 network_base_url = "https://alpha4.starknet.io/"
 chainid = StarknetChainId.TESTNET
@@ -33,33 +32,19 @@ async def main():
     account: Account = Account(
         client=client,
         address=deployer_account_addr,
-        key_pair=KeyPair(private_key=deployer_account_private_key, public_key=deployer_account_public_key),
+        key_pair=KeyPair.from_private_key(deployer_account_private_key),
         chain=chainid
     )
     print("account", hex(account.address))
     nonce = await account.get_nonce()
     print("account nonce: ", nonce)
 
-    # Declare & deploy renewal contract
-    impl_file = open("./build/main.json", "r")
-    declare_result = await Contract.declare(
-        account=account, compiled_contract=impl_file.read(), max_fee=int(1e16)
-    )
-    impl_file.close()
-    await declare_result.wait_for_acceptance()
-    impl_contract_class_hash = declare_result.class_hash
-    print('impl_contract_class_hash:', impl_contract_class_hash)
-
     # declare proxy contract
     proxy_file = open("./build/proxy.json", "r")
     proxy_content = proxy_file.read()
-    declare_contract_tx = await account.sign_declare_transaction(
-        compiled_contract=proxy_content, max_fee=max_fee
-    )
-    proxy_file.close()
-    proxy_declaration = await client.declare(transaction=declare_contract_tx)
-    proxy_contract_class_hash = proxy_declaration.class_hash
-    print("proxy class hash:", hex(proxy_contract_class_hash))
+
+    proxy_contract_class_hash = 0xea0cbb4e76447cfa0e711a28405300794b1149e707e92288386ce14fa2ff0f
+    impl_contract_class_hash = 0x6d5557dc2c38d36238aadeea19549662bf2d40483f25bbd275304a0feaa2394
 
     proxy_json = json.loads(proxy_content)
     abi = proxy_json["abi"]
