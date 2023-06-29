@@ -55,7 +55,6 @@ func voted(caller: felt, upgrade_id: felt, implementation_hash: felt, vote: felt
 
 @external
 func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    admin: felt, 
     naming_address: felt, 
     pricing_address: felt,
     erc20_address: felt,
@@ -63,7 +62,7 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     naming_contract.write(naming_address);
     pricing_contract.write(pricing_address);
 
-    Proxy.initializer(admin);
+    Proxy.initializer(0);
 
     // approve naming contract to transfer tokens
     let (infinite_approval) = uint256_not(Uint256(0, 0));
