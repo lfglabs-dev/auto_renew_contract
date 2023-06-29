@@ -1,6 +1,7 @@
 migrations/*.json
 
 ### keys ###
+.key
 keys.txt
 
 ### Nile ###
