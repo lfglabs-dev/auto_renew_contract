@@ -55,7 +55,6 @@ async def main():
             "implementation_hash": impl_contract_class_hash,
             "selector": get_selector_from_name("initializer"),
             "calldata": [
-                admin,
                 naming_addr,
                 pricing_addr,
                 eth_token,

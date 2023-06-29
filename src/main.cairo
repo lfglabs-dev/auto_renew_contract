@@ -18,10 +18,6 @@ from src.constants import VOTERS_LEN, VOTING_QUORUM, voters_data_start
 //
 
 @storage_var
-func admin_address() -> (address: felt) {
-}
-
-@storage_var
 func naming_contract() -> (contract_address: felt) {
 }
 
@@ -59,20 +55,14 @@ func voted(caller: felt, upgrade_id: felt, implementation_hash: felt, vote: felt
 
 @external
 func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    admin: felt, 
     naming_address: felt, 
     pricing_address: felt,
     erc20_address: felt,
 ) {
-    // Can only be called if there is no admin
-    let (current_admin) = admin_address.read();
-    assert current_admin = 0;
-
-    admin_address.write(admin);
     naming_contract.write(naming_address);
     pricing_contract.write(pricing_address);
 
-    Proxy.initializer(admin);
+    Proxy.initializer(0);
 
     // approve naming contract to transfer tokens
     let (infinite_approval) = uint256_not(Uint256(0, 0));
