@@ -219,3 +219,4 @@ pyvenv.cfg
 pip-selfcheck.json
 
 target
+deployments/

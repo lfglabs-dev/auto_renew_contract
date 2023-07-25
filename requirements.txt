@@ -2,5 +2,5 @@ ecdsa
 fastecdsa
 sympy
 cairo-lang
-starknet-py
+starknet-py==0.17.1
 black
