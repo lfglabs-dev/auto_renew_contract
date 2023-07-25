@@ -86,7 +86,7 @@ async def main():
     for x in range(1, 10):
         approve = await eth.functions["approve"].invoke(
             int(deployments["auto_renew_contract_AutoRenewal"]["address"], 16), 
-            600, 0,
+            int_to_uint256(600),
             max_fee=int(1e17)
         )
         await approve.wait_for_acceptance()
@@ -100,7 +100,7 @@ async def main():
     for x in range(1, 5):
         approve = await eth.functions["approve"].invoke(
             int(deployments["auto_renew_contract_AutoRenewal"]["address"], 16), 
-            0, 0,
+            int_to_uint256(0),
             max_fee=int(1e17)
         )
         await approve.wait_for_acceptance()
