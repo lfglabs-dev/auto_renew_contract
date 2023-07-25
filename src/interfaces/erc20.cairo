@@ -1,6 +1,6 @@
 #[starknet::interface]
 trait IERC20<TContractState> {
-    fn transfer_from(
+    fn transferFrom(
         ref self: TContractState,
         sender: starknet::ContractAddress,
         recipient: starknet::ContractAddress,

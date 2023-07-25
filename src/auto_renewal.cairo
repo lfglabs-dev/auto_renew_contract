@@ -212,7 +212,7 @@ mod AutoRenewal {
             let contract = get_contract_address();
             IERC20Dispatcher {
                 contract_address: erc20
-            }.transfer_from(renewer, contract, renewal_price);
+            }.transferFrom(renewer, contract, renewal_price);
             INamingDispatcher { contract_address: naming }.renew(root_domain, 365);
 
             self.last_renewal.write((renewer, root_domain), block_timestamp);

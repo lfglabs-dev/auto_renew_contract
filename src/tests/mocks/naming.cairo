@@ -45,8 +45,8 @@ mod Naming {
     use array::ArrayTrait;
     use traits::Into;
     use integer::u256_from_felt252;
-    use auto_renew_contract::tests::mocks::erc20::{
-        ERC20, MockERC20ABIDispatcher, MockERC20ABIDispatcherTrait
+    use auto_renew_contract::interfaces::erc20::{
+        IERC20, IERC20Dispatcher, IERC20DispatcherTrait
     };
     use debug::PrintTrait;
 
@@ -117,9 +117,9 @@ mod Naming {
             let caller = starknet::get_caller_address();
             let erc20 = self._erc20_address.read();
             let contract = starknet::get_contract_address();
-            MockERC20ABIDispatcher {
+            IERC20Dispatcher {
                 contract_address: erc20
-            }.transfer_from(caller, contract, u256 { low: 500, high: 0 });
+            }.transferFrom(caller, contract, u256 { low: 500, high: 0 });
 
             // write_domain_data
             let expiry = starknet::get_block_timestamp().into() + 86400 * days;
@@ -137,9 +137,9 @@ mod Naming {
             // pay renew domain
             let erc20 = self._erc20_address.read();
             let contract = starknet::get_contract_address();
-            MockERC20ABIDispatcher {
+            IERC20Dispatcher {
                 contract_address: erc20
-            }.transfer_from(caller, contract, u256 { low: 500, high: 0 });
+            }.transferFrom(caller, contract, u256 { low: 500, high: 0 });
 
             // write domain data with new expiry
             let domain_data: DomainData = self._domain_data.read(hashed_domain);
