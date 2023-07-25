@@ -1,9 +1,0 @@
-[project]
-protostar-version = "0.11.0"
-lib-path = "lib"
-cairo-path = ["lib", "./lib/cairo_contracts/src", "./lib/starknetid", "./lib/naming_contract"]
-
-[contracts]
-main = ["src/main.cairo"]
-proxy = ["lib/cairo_contracts/src/openzeppelin/upgrades/presets/Proxy.cairo"]
-
