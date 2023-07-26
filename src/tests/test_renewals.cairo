@@ -20,7 +20,10 @@ use super::mocks::starknetid::{
 };
 use super::mocks::pricing::{Pricing, MockPricingABIDispatcher, MockPricingABIDispatcherTrait};
 use super::mocks::naming::{Naming, MockNamingABIDispatcher, MockNamingABIDispatcherTrait};
-use super::constants::{OWNER, OTHER, USER, ZERO, BLOCK_TIMESTAMP, BLOCK_TIMESTAMP_ADD, TH0RGAL_DOMAIN, OTHER_DOMAIN, BLOCK_TIMESTAMP_EXPIRED};
+use super::constants::{
+    OWNER, OTHER, USER, ZERO, BLOCK_TIMESTAMP, BLOCK_TIMESTAMP_ADD, TH0RGAL_DOMAIN, OTHER_DOMAIN,
+    BLOCK_TIMESTAMP_EXPIRED
+};
 
 #[cfg(test)]
 fn deploy_autorenewal(
@@ -171,14 +174,14 @@ fn test_renew_domain() {
     let mut domain_arr = ArrayTrait::<felt252>::new();
     domain_arr.append(TH0RGAL_DOMAIN());
     let expiry = naming.domain_to_expiry(domain_arr);
-    assert(expiry == (86400 * 365) + BLOCK_TIMESTAMP().into() , 'expiry should be 365 days');
+    assert(expiry == (86400 * 365) + BLOCK_TIMESTAMP().into(), 'expiry should be 365 days');
 
     autorenewal.renew(TH0RGAL_DOMAIN(), USER(), limit_price);
 
     let mut domain_arr = ArrayTrait::<felt252>::new();
     domain_arr.append(TH0RGAL_DOMAIN());
     let new_expiry = naming.domain_to_expiry(domain_arr);
-    let limit : u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
+    let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
     assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
 }
 
@@ -264,13 +267,13 @@ fn test_renew_expired_domain() {
 
     // Advance time and assert domain is expired
     testing::set_block_timestamp(BLOCK_TIMESTAMP_EXPIRED());
-    let expiry : u256 = naming.domain_to_expiry(build_domain_arr(TH0RGAL_DOMAIN())).into();
+    let expiry: u256 = naming.domain_to_expiry(build_domain_arr(TH0RGAL_DOMAIN())).into();
     assert(expiry < BLOCK_TIMESTAMP_EXPIRED().into(), 'domain should be expired');
 
     // Should renew TH0RGAL_DOMAIN for a year even if it is expired
     autorenewal.renew(TH0RGAL_DOMAIN(), USER(), limit_price);
     let new_expiry = naming.domain_to_expiry(build_domain_arr(TH0RGAL_DOMAIN()));
-    let limit : u256 = ((86400 * 345) + BLOCK_TIMESTAMP_EXPIRED().into()).into();
+    let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_EXPIRED().into()).into();
     assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
 }
 
@@ -312,7 +315,7 @@ fn test_renew_domains() {
 
     autorenewal.batch_renew(domains_arr, renewers_arr, limit_prices_arr);
 
-    let limit : u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
+    let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
     let expiry = naming.domain_to_expiry(build_domain_arr(TH0RGAL_DOMAIN()));
     assert(expiry.into() >= limit, 'new expiry should be 365 days');
     let expiry = naming.domain_to_expiry(build_domain_arr(OTHER_DOMAIN()));
