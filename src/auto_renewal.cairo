@@ -77,6 +77,8 @@ mod AutoRenewal {
         domain: felt252,
         renewer: ContractAddress,
         days: felt252,
+        limit_price: u256,
+        timestamp: felt252,
     }
 
     //
@@ -220,7 +222,13 @@ mod AutoRenewal {
             self
                 .emit(
                     Event::domain_renewed(
-                        domain_renewed { domain: root_domain, renewer, days: 365 }
+                        domain_renewed {
+                            domain: root_domain,
+                            renewer,
+                            days: 365,
+                            limit_price,
+                            timestamp: block_timestamp
+                        }
                     )
                 )
         }

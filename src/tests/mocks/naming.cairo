@@ -45,9 +45,7 @@ mod Naming {
     use array::ArrayTrait;
     use traits::Into;
     use integer::u256_from_felt252;
-    use auto_renew_contract::interfaces::erc20::{
-        IERC20, IERC20Dispatcher, IERC20DispatcherTrait
-    };
+    use auto_renew_contract::interfaces::erc20::{IERC20, IERC20Dispatcher, IERC20DispatcherTrait};
     use debug::PrintTrait;
 
     #[derive(Serde, Copy, Drop, storage_access::StorageAccess)]
