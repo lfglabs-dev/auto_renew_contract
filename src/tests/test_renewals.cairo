@@ -237,28 +237,6 @@ fn test_renew_fail_expiry() {
     autorenewal.renew(TH0RGAL_DOMAIN(), USER(), limit_price);
 }
 
-// TODO: mock another contract, like if we changes the content of the naming contract ?
-// #[cfg(test)]
-// #[test]
-// #[available_gas(20000000)]
-// #[should_panic(expected: ('Renewal price > limit price', 'ENTRYPOINT_FAILED',))]
-// fn test_renew_twice_fail() {
-//     // initialize contracts
-//     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
-
-//     // send eth to USER & buy TH0RGAL_DOMAIN for 10 days
-//     send_eth(erc20, OWNER(), USER(), 1000.into());
-//     buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 10.into());
-
-//     // Toggle renewal for a limit_price
-//     let limit_price : u256 = 600.into();
-//     autorenewal.toggle_renewals(TH0RGAL_DOMAIN(), limit_price);
-//     erc20.approve(autorenewal.contract_address, limit_price);
-
-//     // Should renew domain for a year
-//     autorenewal.renew(TH0RGAL_DOMAIN(), USER(), limit_price);
-// }
-
 #[cfg(test)]
 #[test]
 #[available_gas(20000000)]
