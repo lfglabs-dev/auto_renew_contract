@@ -189,7 +189,7 @@ mod AutoRenewal {
             let last_renewed = self.last_renewal.read((renewer, root_domain));
             let elapsed: u256 = u256_from_felt252(block_timestamp - last_renewed);
             let max = u256_from_felt252(86400 * 364);
-            assert(elapsed < max, 'Domain already renewed');
+            assert(elapsed > max, 'Domain already renewed');
 
             // Check domain is set to expire within a month
             let mut domain_arr = ArrayTrait::<felt252>::new();

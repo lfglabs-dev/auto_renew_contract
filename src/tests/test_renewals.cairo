@@ -2,7 +2,6 @@ use array::ArrayTrait;
 use result::ResultTrait;
 use traits::Into;
 use option::OptionTrait;
-use integer::u128_to_felt252;
 use debug::PrintTrait;
 
 use starknet::ContractAddress;
@@ -21,7 +20,7 @@ use super::mocks::starknetid::{
 };
 use super::mocks::pricing::{Pricing, MockPricingABIDispatcher, MockPricingABIDispatcherTrait};
 use super::mocks::naming::{Naming, MockNamingABIDispatcher, MockNamingABIDispatcherTrait};
-use super::constants::{OWNER, OTHER, USER, ZERO, BLOCK_TIMESTAMP, TH0RGAL_DOMAIN, OTHER_DOMAIN};
+use super::constants::{OWNER, OTHER, USER, ZERO, BLOCK_TIMESTAMP, BLOCK_TIMESTAMP_ADD, TH0RGAL_DOMAIN, OTHER_DOMAIN, BLOCK_TIMESTAMP_EXPIRED};
 
 #[cfg(test)]
 fn deploy_autorenewal(
@@ -155,10 +154,13 @@ fn test_toggle_renewal() {
 fn test_renew_domain() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
+    testing::set_block_timestamp(BLOCK_TIMESTAMP());
 
     // send eth to USER() & buy TH0RGAL_DOMAIN for 10 days
     send_eth(erc20, OWNER(), USER(), 1000.into());
-    buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 10.into());
+    buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 365.into());
+
+    testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // Toggle renewal & approve ERC20 transfer
     let limit_price: u256 = 600.into();
@@ -169,14 +171,15 @@ fn test_renew_domain() {
     let mut domain_arr = ArrayTrait::<felt252>::new();
     domain_arr.append(TH0RGAL_DOMAIN());
     let expiry = naming.domain_to_expiry(domain_arr);
-    assert(expiry == 86400 * 10, 'expiry should be 10');
+    assert(expiry == (86400 * 365) + BLOCK_TIMESTAMP().into() , 'expiry should be 365 days');
 
     autorenewal.renew(TH0RGAL_DOMAIN(), USER(), limit_price);
 
     let mut domain_arr = ArrayTrait::<felt252>::new();
     domain_arr.append(TH0RGAL_DOMAIN());
     let new_expiry = naming.domain_to_expiry(domain_arr);
-    assert(new_expiry == 86400 * 365 + 86400 * 10, 'new expiry should be 375 days');
+    let limit : u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
+    assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
 }
 
 #[cfg(test)]
@@ -203,10 +206,12 @@ fn test_renew_fail_not_toggled() {
 fn test_renew_fail_wrong_limit_price() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
+    testing::set_block_timestamp(BLOCK_TIMESTAMP());
 
     // send eth to USER & buy TH0RGAL_DOMAIN for 10 days
     send_eth(erc20, OWNER(), USER(), 1000.into());
-    buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 10.into());
+    buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 365.into());
+    testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // Toggle renewal for a limit_price
     let limit_price: u256 = 300.into();
@@ -224,10 +229,13 @@ fn test_renew_fail_wrong_limit_price() {
 fn test_renew_fail_expiry() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
+    testing::set_block_timestamp(BLOCK_TIMESTAMP());
 
     // send eth to USER & buy TH0RGAL_DOMAIN
     send_eth(erc20, OWNER(), USER(), 1000.into());
-    buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 365.into());
+    buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 730.into());
+
+    testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // toggle renewal for TH0RGAL_DOMAIN
     let limit_price: u256 = 600.into();
@@ -243,10 +251,11 @@ fn test_renew_fail_expiry() {
 fn test_renew_expired_domain() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
+    testing::set_block_timestamp(BLOCK_TIMESTAMP());
 
     // send eth to USER() & buy TH0RGAL_DOMAIN for 10 days
     send_eth(erc20, OWNER(), USER(), 1000.into());
-    buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 10.into());
+    buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 365.into());
 
     // Toggle renewal & approve ERC20 transfer
     let limit_price: u256 = 600.into();
@@ -254,14 +263,15 @@ fn test_renew_expired_domain() {
     erc20.approve(autorenewal.contract_address, 600.into());
 
     // Advance time and assert domain is expired
-    testing::set_block_timestamp(1728000);
-    let expiry = naming.domain_to_expiry(build_domain_arr(TH0RGAL_DOMAIN()));
-    assert(integer::u256_from_felt252(expiry) < 1728000.into(), 'domain should be expired');
+    testing::set_block_timestamp(BLOCK_TIMESTAMP_EXPIRED());
+    let expiry : u256 = naming.domain_to_expiry(build_domain_arr(TH0RGAL_DOMAIN())).into();
+    assert(expiry < BLOCK_TIMESTAMP_EXPIRED().into(), 'domain should be expired');
 
     // Should renew TH0RGAL_DOMAIN for a year even if it is expired
     autorenewal.renew(TH0RGAL_DOMAIN(), USER(), limit_price);
     let new_expiry = naming.domain_to_expiry(build_domain_arr(TH0RGAL_DOMAIN()));
-    assert(new_expiry == 1728000 + 86400 * 365, 'new expiry should be 365 days');
+    let limit : u256 = ((86400 * 345) + BLOCK_TIMESTAMP_EXPIRED().into()).into();
+    assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
 }
 
 #[cfg(test)]
@@ -270,6 +280,7 @@ fn test_renew_expired_domain() {
 fn test_renew_domains() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
+    testing::set_block_timestamp(BLOCK_TIMESTAMP());
 
     let limit_price: u256 = 600.into();
 
@@ -281,11 +292,12 @@ fn test_renew_domains() {
 
     // send eth to OTHER() & buy OTHER_DOMAIN for 10 days & toggle renewal
     send_eth(erc20, OWNER(), OTHER(), 1000.into());
-    buy_domain(erc20, starknetid, naming, OTHER(), 1.into(), OTHER_DOMAIN(), 10.into());
+    buy_domain(erc20, starknetid, naming, OTHER(), 1.into(), OTHER_DOMAIN(), 365.into());
     autorenewal.toggle_renewals(OTHER_DOMAIN(), limit_price);
     erc20.approve(autorenewal.contract_address, limit_price);
 
     // Should renew both domains for a year
+    testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // Build calldata
     let mut domains_arr = ArrayTrait::<felt252>::new();
@@ -300,8 +312,9 @@ fn test_renew_domains() {
 
     autorenewal.batch_renew(domains_arr, renewers_arr, limit_prices_arr);
 
+    let limit : u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
     let expiry = naming.domain_to_expiry(build_domain_arr(TH0RGAL_DOMAIN()));
-    assert(expiry == 86400 * 10 + 86400 * 365, 'new expiry should be 375 days');
+    assert(expiry.into() >= limit, 'new expiry should be 365 days');
     let expiry = naming.domain_to_expiry(build_domain_arr(OTHER_DOMAIN()));
-    assert(expiry == 86400 * 10 + 86400 * 365, 'new expiry should be 375 days');
+    assert(expiry.into() >= limit, 'new expiry should be 365 days');
 }

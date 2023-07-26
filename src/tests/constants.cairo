@@ -15,7 +15,15 @@ fn ZERO() -> starknet::ContractAddress {
 }
 
 fn BLOCK_TIMESTAMP() -> u64 {
-    103374042_u64
+    1690364
+}
+
+fn BLOCK_TIMESTAMP_ADD() -> u64 {
+    1690364 + (86400 * 345)
+}
+
+fn BLOCK_TIMESTAMP_EXPIRED() -> u64 {
+    1690364 + (86400 * 400)
 }
 
 fn TH0RGAL_DOMAIN() -> felt252 {
