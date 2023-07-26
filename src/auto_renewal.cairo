@@ -115,10 +115,16 @@ mod AutoRenewal {
         fn toggle_renewals(ref self: ContractState, domain: felt252, limit_price: u256) {
             let caller = get_caller_address();
             let prev_renew = self._is_renewing.read((caller, domain, limit_price));
-            self._is_renewing.write((caller, domain, limit_price), 1 - prev_renew);
 
-            let _last_renewal = self.last_renewal.read((caller, domain));
-            self.last_renewal.write((caller, domain), _last_renewal * prev_renew);
+            // we are using _is_renewing output as a boolean
+            // here, we toggle its current value
+            let new_renew = 1 - prev_renew;
+            self._is_renewing.write((caller, domain, limit_price), new_renew);
+
+            let prev_last_renewal = self.last_renewal.read((caller, domain));
+            // if we toggle the renewal on, we erase the previous renewal date
+            let new_last_renewal = prev_last_renewal * prev_renew;
+            self.last_renewal.write((caller, domain), new_last_renewal);
 
             self
                 .emit(
@@ -127,8 +133,8 @@ mod AutoRenewal {
                             domain,
                             renewer: caller,
                             limit_price,
-                            is_renewing: 1 - prev_renew,
-                            last_renewal: _last_renewal * prev_renew
+                            is_renewing: new_renew,
+                            last_renewal: new_last_renewal
                         }
                     )
                 )
