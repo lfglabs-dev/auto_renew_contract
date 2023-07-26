@@ -166,9 +166,9 @@ fn test_renew_domain() {
     testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // Toggle renewal & approve ERC20 transfer
-    let limit_price: u256 = 600.into();
+    let limit_price: u256 = 500.into();
     autorenewal.toggle_renewals(TH0RGAL_DOMAIN(), limit_price);
-    erc20.approve(autorenewal.contract_address, 600.into());
+    erc20.approve(autorenewal.contract_address, limit_price);
 
     // Should test renewing TH0RGAL_DOMAIN for a year
     let mut domain_arr = ArrayTrait::<felt252>::new();
@@ -198,14 +198,14 @@ fn test_renew_fail_not_toggled() {
     buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 365.into());
 
     // Should revert because USER has not toggled renewals for TH0RGAL_DOMAIN
-    let limit_price: u256 = 600.into();
+    let limit_price: u256 = 500.into();
     autorenewal.renew(TH0RGAL_DOMAIN(), USER(), limit_price);
 }
 
 #[cfg(test)]
 #[test]
 #[available_gas(20000000)]
-#[should_panic(expected: ('Renewal price > limit price', 'ENTRYPOINT_FAILED', ))]
+#[should_panic(expected: ('u256_sub Overflow', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED' ))]
 fn test_renew_fail_wrong_limit_price() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
@@ -241,10 +241,10 @@ fn test_renew_fail_expiry() {
     testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // toggle renewal for TH0RGAL_DOMAIN
-    let limit_price: u256 = 600.into();
+    let limit_price: u256 = 500.into();
     autorenewal.toggle_renewals(TH0RGAL_DOMAIN(), limit_price);
 
-    erc20.approve(autorenewal.contract_address, 600.into());
+    erc20.approve(autorenewal.contract_address, limit_price);
     autorenewal.renew(TH0RGAL_DOMAIN(), USER(), limit_price);
 }
 
@@ -261,9 +261,9 @@ fn test_renew_expired_domain() {
     buy_domain(erc20, starknetid, naming, USER(), 1.into(), TH0RGAL_DOMAIN(), 365.into());
 
     // Toggle renewal & approve ERC20 transfer
-    let limit_price: u256 = 600.into();
+    let limit_price: u256 = 500.into();
     autorenewal.toggle_renewals(TH0RGAL_DOMAIN(), limit_price);
-    erc20.approve(autorenewal.contract_address, 600.into());
+    erc20.approve(autorenewal.contract_address, limit_price);
 
     // Advance time and assert domain is expired
     testing::set_block_timestamp(BLOCK_TIMESTAMP_EXPIRED());
@@ -285,7 +285,7 @@ fn test_renew_domains() {
     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
     testing::set_block_timestamp(BLOCK_TIMESTAMP());
 
-    let limit_price: u256 = 600.into();
+    let limit_price: u256 = 500.into();
 
     // send eth to USER() & buy TH0RGAL_DOMAIN for 10 days & toggle renewal
     send_eth(erc20, OWNER(), USER(), 1000.into());
@@ -294,7 +294,7 @@ fn test_renew_domains() {
     erc20.approve(autorenewal.contract_address, limit_price);
 
     // send eth to OTHER() & buy OTHER_DOMAIN for 10 days & toggle renewal
-    send_eth(erc20, OWNER(), OTHER(), 1000.into());
+    send_eth(erc20, OWNER(), OTHER(), 1500.into());
     buy_domain(erc20, starknetid, naming, OTHER(), 1.into(), OTHER_DOMAIN(), 365.into());
     autorenewal.toggle_renewals(OTHER_DOMAIN(), limit_price);
     erc20.approve(autorenewal.contract_address, limit_price);

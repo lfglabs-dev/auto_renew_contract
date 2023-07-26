@@ -9,7 +9,7 @@ trait INaming<TContractState> {
         address: starknet::ContractAddress,
     );
 
-    fn renew(ref self: TContractState, domain: felt252, days: felt252, );
+    fn renew(ref self: TContractState, domain: felt252, days: felt252, sponsor: felt252);
 
     fn domain_to_address(
         self: @TContractState, domain: array::Array::<felt252>

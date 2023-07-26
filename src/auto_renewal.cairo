@@ -5,7 +5,7 @@ trait IAutoRenewal<TContractState> {
         domain: felt252,
         renewer: starknet::ContractAddress,
         limit_price: u256
-    ) -> felt252;
+    ) -> u64;
 
     fn get_contracts(
         self: @TContractState
@@ -35,8 +35,7 @@ mod AutoRenewal {
     use traits::{TryInto, Into};
     use option::OptionTrait;
     use array::ArrayTrait;
-    use integer::u256_from_felt252;
-    use debug::PrintTrait;
+    use integer::u64_try_from_felt252;
 
     use auto_renew_contract::interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
     use auto_renew_contract::interfaces::naming::{INamingDispatcher, INamingDispatcherTrait};
@@ -46,10 +45,11 @@ mod AutoRenewal {
     struct Storage {
         naming_contract: ContractAddress,
         pricing_contract: ContractAddress,
+        erc20_contract: ContractAddress,
         // (renewer, domain, limit_price) -> 1 or 0
-        _is_renewing: LegacyMap::<(ContractAddress, felt252, u256), felt252>,
+        _is_renewing: LegacyMap::<(ContractAddress, felt252, u256), u64>,
         // (renewer, domain) -> timestamp
-        last_renewal: LegacyMap::<(ContractAddress, felt252), felt252>,
+        last_renewal: LegacyMap::<(ContractAddress, felt252), u64>,
     }
 
     //
@@ -68,8 +68,8 @@ mod AutoRenewal {
         domain: felt252,
         renewer: ContractAddress,
         limit_price: u256,
-        is_renewing: felt252,
-        last_renewal: felt252,
+        is_renewing: u64,
+        last_renewal: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -78,7 +78,7 @@ mod AutoRenewal {
         renewer: ContractAddress,
         days: felt252,
         limit_price: u256,
-        timestamp: felt252,
+        timestamp: u64,
     }
 
     //
@@ -94,17 +94,14 @@ mod AutoRenewal {
     ) {
         self.naming_contract.write(naming_address);
         self.pricing_contract.write(pricing_address);
-
-        // approve naming contract to transfer tokens
-        let max: u256 = integer::BoundedInt::max();
-        IERC20Dispatcher { contract_address: erc20_address }.approve(naming_address, max);
+        self.erc20_contract.write(erc20_address);
     }
 
     #[external(v0)]
     impl AutoRenewalImpl of super::IAutoRenewal<ContractState> {
         fn is_renewing(
             self: @ContractState, domain: felt252, renewer: ContractAddress, limit_price: u256
-        ) -> felt252 {
+        ) -> u64 {
             self._is_renewing.read((renewer, domain, limit_price))
         }
 
@@ -115,10 +112,16 @@ mod AutoRenewal {
         fn toggle_renewals(ref self: ContractState, domain: felt252, limit_price: u256) {
             let caller = get_caller_address();
             let prev_renew = self._is_renewing.read((caller, domain, limit_price));
-            self._is_renewing.write((caller, domain, limit_price), 1 - prev_renew);
 
-            let _last_renewal = self.last_renewal.read((caller, domain));
-            self.last_renewal.write((caller, domain), _last_renewal * prev_renew);
+            // we are using _is_renewing output as a boolean
+            // here, we toggle its current value
+            let new_renew = 1_u64 - prev_renew;
+            self._is_renewing.write((caller, domain, limit_price), new_renew);
+
+            let prev_last_renewal = self.last_renewal.read((caller, domain));
+            // if we toggle the renewal on, we erase the previous renewal date
+            let new_last_renewal = prev_last_renewal * prev_renew;
+            self.last_renewal.write((caller, domain), new_last_renewal);
 
             self
                 .emit(
@@ -127,8 +130,8 @@ mod AutoRenewal {
                             domain,
                             renewer: caller,
                             limit_price,
-                            is_renewing: 1 - prev_renew,
-                            last_renewal: _last_renewal * prev_renew
+                            is_renewing: new_renew,
+                            last_renewal: new_last_renewal
                         }
                     )
                 )
@@ -185,37 +188,29 @@ mod AutoRenewal {
             assert(can_renew == 1, 'Renewal not toggled for domain');
 
             // Check domain has not been renew yet this year
-            let block_timestamp: felt252 = get_block_timestamp().into();
+            let block_timestamp = get_block_timestamp();
             let last_renewed = self.last_renewal.read((renewer, root_domain));
-            let elapsed: u256 = u256_from_felt252(block_timestamp - last_renewed);
-            let max = u256_from_felt252(86400 * 364);
-            assert(elapsed > max, 'Domain already renewed');
+            assert(block_timestamp - last_renewed > 86400_u64 * 364_u64, 'Domain already renewed');
 
             // Check domain is set to expire within a month
             let mut domain_arr = ArrayTrait::<felt252>::new();
+            let block_timestamp2 = get_block_timestamp();
             domain_arr.append(root_domain);
-            let expiry = INamingDispatcher {
-                contract_address: naming
-            }.domain_to_expiry(domain_arr);
-            assert(
-                u256_from_felt252(expiry) <= u256_from_felt252(block_timestamp)
-                    + u256_from_felt252(86400 * 30),
-                'Domain not set to expire'
-            );
-
-            // Check renew price for domain is lower or equal to limit price
-            let pricing = self.pricing_contract.read();
-            let (erc20, renewal_price) = IPricingDispatcher {
-                contract_address: pricing
-            }.compute_renew_price(root_domain, 365);
-            assert(renewal_price <= limit_price, 'Renewal price > limit price');
+            let expiry: u64 = u64_try_from_felt252(
+                INamingDispatcher { contract_address: naming }.domain_to_expiry(domain_arr)
+            )
+                .expect('error converting to u64');
+            assert(expiry <= block_timestamp2 + (86400_u64 * 30_u64), 'Domain not set to expire');
 
             // Renew domain
             let contract = get_contract_address();
+            let erc20 = self.erc20_contract.read();
             IERC20Dispatcher {
                 contract_address: erc20
-            }.transferFrom(renewer, contract, renewal_price);
-            INamingDispatcher { contract_address: naming }.renew(root_domain, 365);
+            }.transferFrom(renewer, contract, limit_price);
+            IERC20Dispatcher { contract_address: erc20 }.approve(naming, limit_price);
+            INamingDispatcher { contract_address: naming }.renew(root_domain, 365, 0);
+            IERC20Dispatcher { contract_address: erc20 }.approve(naming, 0.into());
 
             self.last_renewal.write((renewer, root_domain), block_timestamp);
 

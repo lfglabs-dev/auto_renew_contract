@@ -9,7 +9,7 @@ trait INaming<TContractState> {
         address: starknet::ContractAddress,
     );
 
-    fn renew(ref self: TContractState, domain: felt252, days: felt252, );
+    fn renew(ref self: TContractState, domain: felt252, days: felt252, sponsor: felt252);
 
     fn domain_to_address(
         self: @TContractState, domain: array::Array::<felt252>
@@ -29,7 +29,7 @@ trait MockNamingABI<TContractState> {
         address: starknet::ContractAddress,
     );
 
-    fn renew(ref self: TContractState, domain: felt252, days: felt252, );
+    fn renew(ref self: TContractState, domain: felt252, days: felt252, sponsor: felt252);
 
     fn domain_to_address(
         self: @TContractState, domain: array::Array::<felt252>
@@ -124,7 +124,7 @@ mod Naming {
             self._domain_data.write(domain, DomainData { owner: token_id, address, expiry,  });
         }
 
-        fn renew(ref self: ContractState, domain: felt252, days: felt252, ) {
+        fn renew(ref self: ContractState, domain: felt252, days: felt252, sponsor: felt252) {
             let current_timestamp = starknet::get_block_timestamp();
             let caller = starknet::get_caller_address();
 
