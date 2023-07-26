@@ -190,7 +190,7 @@ mod AutoRenewal {
             let can_renew = self._is_renewing.read((renewer, root_domain, limit_price));
             assert(can_renew == 1, 'Renewal not toggled for domain');
 
-            // Check domain has not been renew yet this year
+            // Check domain has not been renewed yet this year
             let block_timestamp: felt252 = get_block_timestamp().into();
             let last_renewed = self.last_renewal.read((renewer, root_domain));
             let elapsed: u256 = u256_from_felt252(block_timestamp - last_renewed);
