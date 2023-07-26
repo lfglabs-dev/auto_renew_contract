@@ -52,7 +52,6 @@ async def main():
         deployments["auto_renew_contract_AutoRenewal"] = await deploy_v2(
             "auto_renew_contract_AutoRenewal",
             deployments["auto_renew_contract_Naming"]["address"],
-            deployments["auto_renew_contract_Pricing"]["address"],
             ETH_TOKEN_ADDRESS,
         )
         dump_deployments(deployments)

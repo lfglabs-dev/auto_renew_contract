@@ -39,12 +39,10 @@ mod AutoRenewal {
 
     use auto_renew_contract::interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
     use auto_renew_contract::interfaces::naming::{INamingDispatcher, INamingDispatcherTrait};
-    use auto_renew_contract::interfaces::pricing::{IPricingDispatcher, IPricingDispatcherTrait};
 
     #[storage]
     struct Storage {
         naming_contract: ContractAddress,
-        pricing_contract: ContractAddress,
         erc20_contract: ContractAddress,
         // (renewer, domain, limit_price) -> 1 or 0
         _is_renewing: LegacyMap::<(ContractAddress, felt252, u256), u64>,
@@ -87,13 +85,9 @@ mod AutoRenewal {
 
     #[constructor]
     fn constructor(
-        ref self: ContractState,
-        naming_address: ContractAddress,
-        pricing_address: ContractAddress,
-        erc20_address: ContractAddress
+        ref self: ContractState, naming_address: ContractAddress, erc20_address: ContractAddress
     ) {
         self.naming_contract.write(naming_address);
-        self.pricing_contract.write(pricing_address);
         self.erc20_contract.write(erc20_address);
     }
 
@@ -106,7 +100,7 @@ mod AutoRenewal {
         }
 
         fn get_contracts(self: @ContractState) -> (ContractAddress, ContractAddress) {
-            (self.naming_contract.read(), self.pricing_contract.read())
+            (self.naming_contract.read(), self.erc20_contract.read())
         }
 
         fn toggle_renewals(ref self: ContractState, domain: felt252, limit_price: u256) {

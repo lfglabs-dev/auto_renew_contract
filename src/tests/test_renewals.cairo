@@ -27,11 +27,10 @@ use super::constants::{
 
 #[cfg(test)]
 fn deploy_autorenewal(
-    naming_addr: ContractAddress, pricing_addr: ContractAddress, erc20_addr: ContractAddress
+    naming_addr: ContractAddress, erc20_addr: ContractAddress
 ) -> IAutoRenewalDispatcher {
     let mut calldata = ArrayTrait::<felt252>::new();
     calldata.append(naming_addr.into());
-    calldata.append(pricing_addr.into());
     calldata.append(erc20_addr.into());
 
     let address = deploy(AutoRenewal::TEST_CLASS_HASH, calldata);
@@ -103,9 +102,7 @@ fn setup() -> (
     let naming = deploy_naming(
         starknetid.contract_address, pricing.contract_address, erc20.contract_address
     );
-    let autorenewal = deploy_autorenewal(
-        naming.contract_address, pricing.contract_address, erc20.contract_address
-    );
+    let autorenewal = deploy_autorenewal(naming.contract_address, erc20.contract_address);
 
     return (erc20, pricing, starknetid, naming, autorenewal);
 }
@@ -205,7 +202,9 @@ fn test_renew_fail_not_toggled() {
 #[cfg(test)]
 #[test]
 #[available_gas(20000000)]
-#[should_panic(expected: ('u256_sub Overflow', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED' ))]
+#[should_panic(
+    expected: ('u256_sub Overflow', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED')
+)]
 fn test_renew_fail_wrong_limit_price() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = setup();
