@@ -1,0 +1,15 @@
+[package]
+name = "auto_renew_contract"
+version = "0.1.0"
+
+[dependencies]
+starknet = "2.0.1"
+
+[[target.starknet-contract]]
+sierra = true
+
+# Enable CASM codegen.
+casm = true
+
+# Emit Python-powered hints in order to run compiled CASM class with legacy Cairo VM.
+casm-add-pythonic-hints = true
