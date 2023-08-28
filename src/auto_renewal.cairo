@@ -197,6 +197,7 @@ mod AutoRenewal {
             assert(expiry <= block_timestamp2 + (86400_u64 * 30_u64), 'Domain not set to expire');
 
             // Renew domain
+            self.last_renewal.write((renewer, root_domain), block_timestamp);
             let contract = get_contract_address();
             let erc20 = self.erc20_contract.read();
             IERC20Dispatcher {
@@ -205,8 +206,6 @@ mod AutoRenewal {
             IERC20Dispatcher { contract_address: erc20 }.approve(naming, limit_price);
             INamingDispatcher { contract_address: naming }.renew(root_domain, 365, 0);
             IERC20Dispatcher { contract_address: erc20 }.approve(naming, 0.into());
-
-            self.last_renewal.write((renewer, root_domain), block_timestamp);
 
             self
                 .emit(
