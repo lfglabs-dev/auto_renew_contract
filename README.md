@@ -3,7 +3,7 @@
 This contract allows StarknetID to offer a convenient and secure auto-renewal feature. By activating the automatic renewal you keep the possibility of cutting it at any time and won't pay the transaction costs, you will only be charged the price of the domain.
 Here are the guarantees offered by this contract:
 
-- Your funds will only be used to renew your domain
+- Your funds will only be used to renew the domains you've chosen
 - You can only be charged up to the limit you've chosen
 - You can only be charged once a year
 - You can only be charged if your domain expires in less than a month
