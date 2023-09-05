@@ -1,17 +1,15 @@
-fn OWNER() -> starknet::ContractAddress {
-    starknet::contract_address_const::<10>()
+use starknet::contract_address::ContractAddressZeroable;
+
+fn ADMIN() -> starknet::ContractAddress {
+    starknet::contract_address_const::<0x123>()
 }
 
 fn OTHER() -> starknet::ContractAddress {
-    starknet::contract_address_const::<20>()
-}
-
-fn USER() -> starknet::ContractAddress {
-    starknet::contract_address_const::<123>()
+    starknet::contract_address_const::<0x456>()
 }
 
 fn ZERO() -> starknet::ContractAddress {
-    Zeroable::zero()
+    ContractAddressZeroable::zero()
 }
 
 fn BLOCK_TIMESTAMP() -> u64 {
@@ -30,6 +28,7 @@ fn TH0RGAL_DOMAIN() -> felt252 {
     28235132438
 }
 
+// 7 letter domain : 1234567
 fn OTHER_DOMAIN() -> felt252 {
-    11111111111
+    13847469359445559
 }
