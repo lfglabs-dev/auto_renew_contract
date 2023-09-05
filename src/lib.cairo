@@ -1,4 +1,3 @@
 mod auto_renewal;
-mod interfaces;
-
+#[cfg(test)]
 mod tests;

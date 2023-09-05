@@ -24,8 +24,3 @@ fn deploy_debug(contract_class_hash: felt252, calldata: Array<felt252>) {
     };
 }
 
-fn build_domain_arr(domain: felt252) -> Array::<felt252> {
-    let mut domain_arr = ArrayTrait::<felt252>::new();
-    domain_arr.append(domain);
-    domain_arr
-}
