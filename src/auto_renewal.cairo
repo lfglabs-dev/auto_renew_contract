@@ -74,13 +74,13 @@ mod AutoRenewal {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
-        EnableRenewal: EnableRenewal,
-        DisableRenewal: DisableRenewal,
+        EnabledRenewal: EnabledRenewal,
+        DisabledRenewal: DisabledRenewal,
         DomainRenewed: DomainRenewed,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct EnableRenewal {
+    struct EnabledRenewal {
         #[key]
         domain: felt252,
         renewer: ContractAddress,
@@ -89,7 +89,7 @@ mod AutoRenewal {
     }
 
     #[derive(Drop, starknet::Event)]
-    struct DisableRenewal {
+    struct DisabledRenewal {
         #[key]
         domain: felt252,
         renewer: ContractAddress,
@@ -150,8 +150,8 @@ mod AutoRenewal {
 
             self
                 .emit(
-                    Event::EnableRenewal(
-                        EnableRenewal { domain, renewer: caller, limit_price, meta_hash }
+                    Event::EnabledRenewal(
+                        EnabledRenewal { domain, renewer: caller, limit_price, meta_hash }
                     )
                 )
         }
@@ -162,7 +162,9 @@ mod AutoRenewal {
 
             self
                 .emit(
-                    Event::DisableRenewal(DisableRenewal { domain, renewer: caller, limit_price, })
+                    Event::DisabledRenewal(
+                        DisabledRenewal { domain, renewer: caller, limit_price, }
+                    )
                 )
         }
 
