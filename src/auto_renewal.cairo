@@ -9,11 +9,12 @@ trait IAutoRenewal<TContractState> {
 
     fn get_contracts(
         self: @TContractState
-    ) -> (starknet::ContractAddress, starknet::ContractAddress);
+    ) -> (starknet::ContractAddress, starknet::ContractAddress, starknet::ContractAddress);
 
-    fn toggle_renewals(
+    fn enable_renewals(
         ref self: TContractState, domain: felt252, limit_price: u256, meta_hash: felt252
     );
+    fn disable_renewals(ref self: TContractState, domain: felt252, limit_price: u256);
 
     fn renew(
         ref self: TContractState,
@@ -26,15 +27,16 @@ trait IAutoRenewal<TContractState> {
 
     fn batch_renew(
         ref self: TContractState,
-        domain: array::Array::<felt252>,
-        renewer: array::Array::<starknet::ContractAddress>,
-        limit_price: array::Array::<u256>,
-        tax_price: array::Array::<u256>,
-        metadata: array::Array::<felt252>,
+        domain: array::Span::<felt252>,
+        renewer: array::Span::<starknet::ContractAddress>,
+        limit_price: array::Span::<u256>,
+        tax_price: array::Span::<u256>,
+        metadata: array::Span::<felt252>,
     );
 
     fn update_admin(ref self: TContractState, new_admin: starknet::ContractAddress,);
     fn update_tax_contract(ref self: TContractState, new_addr: starknet::ContractAddress,);
+    fn toggle_off(ref self: TContractState);
 }
 
 #[starknet::contract]
@@ -58,6 +60,7 @@ mod AutoRenewal {
         erc20_contract: ContractAddress,
         tax_contract: ContractAddress,
         admin: ContractAddress,
+        can_renew: bool,
         // (renewer, domain, limit_price) -> 1 or 0
         _is_renewing: LegacyMap::<(ContractAddress, felt252, u256), u64>,
         // (renewer, domain) -> timestamp
@@ -71,23 +74,30 @@ mod AutoRenewal {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
-        toggled_renewal: toggled_renewal,
-        domain_renewed: domain_renewed,
+        EnableRenewal: EnableRenewal,
+        DisableRenewal: DisableRenewal,
+        DomainRenewed: DomainRenewed,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct toggled_renewal {
+    struct EnableRenewal {
         #[key]
         domain: felt252,
         renewer: ContractAddress,
         limit_price: u256,
-        is_renewing: u64,
-        last_renewal: u64,
         meta_hash: felt252,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct domain_renewed {
+    struct DisableRenewal {
+        #[key]
+        domain: felt252,
+        renewer: ContractAddress,
+        limit_price: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct DomainRenewed {
         #[key]
         domain: felt252,
         renewer: ContractAddress,
@@ -112,6 +122,7 @@ mod AutoRenewal {
         self.erc20_contract.write(erc20_addr);
         self.tax_contract.write(tax_addr);
         self.admin.write(admin_addr);
+        self.can_renew.write(true);
     }
 
     #[external(v0)]
@@ -122,38 +133,36 @@ mod AutoRenewal {
             self._is_renewing.read((renewer, domain, limit_price))
         }
 
-        fn get_contracts(self: @ContractState) -> (ContractAddress, ContractAddress) {
-            (self.naming_contract.read(), self.erc20_contract.read())
+        fn get_contracts(
+            self: @ContractState
+        ) -> (ContractAddress, ContractAddress, ContractAddress) {
+            (self.naming_contract.read(), self.erc20_contract.read(), self.tax_contract.read())
         }
 
-        fn toggle_renewals(
+        fn enable_renewals(
             ref self: ContractState, domain: felt252, limit_price: u256, meta_hash: felt252
         ) {
             let caller = get_caller_address();
-            let prev_renew = self._is_renewing.read((caller, domain, limit_price));
+            self._is_renewing.write((caller, domain, limit_price), 1_u64);
 
-            // we are using _is_renewing output as a boolean
-            // here, we toggle its current value
-            let new_renew = 1_u64 - prev_renew;
-            self._is_renewing.write((caller, domain, limit_price), new_renew);
-
-            let prev_last_renewal = self.last_renewal.read((caller, domain));
-            // if we toggle the renewal on, we erase the previous renewal date
-            let new_last_renewal = prev_last_renewal * prev_renew;
-            self.last_renewal.write((caller, domain), new_last_renewal);
+            // we erase the previous renewal date
+            self.last_renewal.write((caller, domain), 0);
 
             self
                 .emit(
-                    Event::toggled_renewal(
-                        toggled_renewal {
-                            domain,
-                            renewer: caller,
-                            limit_price,
-                            is_renewing: new_renew,
-                            last_renewal: new_last_renewal,
-                            meta_hash: meta_hash
-                        }
+                    Event::EnableRenewal(
+                        EnableRenewal { domain, renewer: caller, limit_price, meta_hash }
                     )
+                )
+        }
+
+        fn disable_renewals(ref self: ContractState, domain: felt252, limit_price: u256) {
+            let caller = get_caller_address();
+            self._is_renewing.write((caller, domain, limit_price), 0);
+
+            self
+                .emit(
+                    Event::DisableRenewal(DisableRenewal { domain, renewer: caller, limit_price, })
                 )
         }
 
@@ -165,17 +174,19 @@ mod AutoRenewal {
             tax_price: u256,
             metadata: felt252,
         ) {
+            assert(self.can_renew.read(), 'Contract is disabled');
             self._renew(root_domain, renewer, limit_price, tax_price, metadata);
         }
 
         fn batch_renew(
             ref self: ContractState,
-            domain: array::Array::<felt252>,
-            renewer: array::Array::<starknet::ContractAddress>,
-            limit_price: array::Array::<u256>,
-            tax_price: array::Array::<u256>,
-            metadata: array::Array::<felt252>,
+            domain: array::Span::<felt252>,
+            renewer: array::Span::<starknet::ContractAddress>,
+            limit_price: array::Span::<u256>,
+            tax_price: array::Span::<u256>,
+            metadata: array::Span::<felt252>,
         ) {
+            assert(self.can_renew.read(), 'Contract is disabled');
             assert(domain.len() == renewer.len(), 'Domain & renewer mismatch len');
             assert(domain.len() == limit_price.len(), 'Domain & price mismatch len');
 
@@ -194,7 +205,7 @@ mod AutoRenewal {
                 let _limit_price = limit_price.pop_front().expect('pop_front error');
                 let _tax_price = tax_price.pop_front().expect('pop_front error');
                 let _metadata = metadata.pop_front().expect('pop_front error');
-                self._renew(_domain, _renewer, _limit_price, _tax_price, _metadata);
+                self._renew(*_domain, *_renewer, *_limit_price, *_tax_price, *_metadata);
             }
         }
 
@@ -207,6 +218,11 @@ mod AutoRenewal {
         fn update_tax_contract(ref self: ContractState, new_addr: ContractAddress,) {
             assert(get_caller_address() == self.admin.read(), 'Caller not admin');
             self.admin.write(new_addr);
+        }
+
+        fn toggle_off(ref self: ContractState) {
+            assert(get_caller_address() == self.admin.read(), 'Caller not admin');
+            self.can_renew.write(false);
         }
     }
 
@@ -234,13 +250,10 @@ mod AutoRenewal {
             assert(block_timestamp - last_renewed > 86400_u64 * 364_u64, 'Domain already renewed');
 
             // Check domain is set to expire within a month
-            let mut domain_arr = ArrayTrait::<felt252>::new();
-            let block_timestamp2 = get_block_timestamp();
-            domain_arr.append(root_domain);
             let expiry: u64 = INamingDispatcher { contract_address: naming }
-                .domain_to_data(domain_arr.span())
+                .domain_to_data(array![root_domain].span())
                 .expiry;
-            assert(expiry <= block_timestamp2 + (86400_u64 * 30_u64), 'Domain not set to expire');
+            assert(expiry <= block_timestamp + (86400_u64 * 30_u64), 'Domain not set to expire');
 
             // Renew domain
             self.last_renewal.write((renewer, root_domain), block_timestamp);
@@ -260,8 +273,8 @@ mod AutoRenewal {
 
             self
                 .emit(
-                    Event::domain_renewed(
-                        domain_renewed {
+                    Event::DomainRenewed(
+                        DomainRenewed {
                             domain: root_domain,
                             renewer,
                             days: 365,

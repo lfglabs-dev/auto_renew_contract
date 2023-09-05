@@ -53,6 +53,8 @@ async def main():
             "auto_renew_contract_AutoRenewal",
             deployments["auto_renew_contract_Naming"]["address"],
             ETH_TOKEN_ADDRESS,
+            0x7447084f620ba316a42c72ca5b8eefb3fe9a05ca5fe6430c65a69ecc4349b3b,
+            account.address
         )
         dump_deployments(deployments)
 
@@ -93,8 +95,8 @@ async def main():
             await approve.wait_for_acceptance()
             await invoke(
                     "auto_renew_contract_AutoRenewal",
-                    "toggle_renewals",
-                    [x, 600, 0]
+                    "enable_renewals",
+                    [x, 600, 0, 0x683d4a5f8514fef22d709ea9c55d9419862820318e07a6cf20d49d758cbf06]
             )
 
         logger.info("⏳ Toggling back some domains...")
@@ -107,7 +109,7 @@ async def main():
             # await approve.wait_for_acceptance()
             await invoke(
                     "auto_renew_contract_AutoRenewal",
-                    "toggle_renewals",
+                    "disable_renewals",
                     [x, 600, 0]
             )
         logger.info("✅ Generation Complete")
@@ -121,13 +123,13 @@ async def main():
         print('test', test)
         # Advance time : 31498364
         # curl -H "Content-Type: application/json"  -d "{ \"time\": 31498364, \"lite\": 1 }" -X POST localhost:5050/increase_time
-        logger.info("⏳ Renewing some domains...")
-        for x in range(6, 10):
-            await invoke(
-                    "auto_renew_contract_AutoRenewal",
-                    "renew",
-                    [x, account.address, 600, 0]
-            )
+        # logger.info("⏳ Renewing some domains...")
+        # for x in range(6, 10):
+        #     await invoke(
+        #             "auto_renew_contract_AutoRenewal",
+        #             "renew",
+        #             [x, account.address, 600, 0]
+        #     )
         logger.info("✅ Generation Complete")
 
 # %% Run
