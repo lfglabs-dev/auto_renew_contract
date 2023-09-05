@@ -249,6 +249,8 @@ mod AutoRenewal {
             // Check domain has not been renew yet this year
             let block_timestamp = get_block_timestamp();
             let last_renewed = self.last_renewal.read((renewer, root_domain));
+            // 364 because we keep adding one day margin to the existing month,
+            // if we take more than a day to renew, the margin will shrink.
             assert(block_timestamp - last_renewed > 86400_u64 * 364_u64, 'Domain already renewed');
 
             // Check domain is set to expire within a month
