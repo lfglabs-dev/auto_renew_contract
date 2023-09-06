@@ -20,12 +20,10 @@ from starknet_py.contract import Contract
 
 from utils.constants import (
     BUILD_DIR,
-    # CONTRACTS,
     DEPLOYMENTS_DIR,
     ETH_TOKEN_ADDRESS,
     NETWORK,
     GATEWAY_CLIENT,
-    # SOURCE_DIR,
 )
 
 logging.basicConfig()

@@ -27,7 +27,7 @@ NETWORKS = {
     "devnet": {
         "name": "devnet",
         "explorer_url": "",
-        "rpc_url": "http://127.0.0.1:5050/rpc",
+        "rpc_url": "http://0.0.0.0:5050/rpc",
         "feeder_gateway_url": "http://localhost:5050/feeder_gateway",
         "gateway_url": "http://localhost:5050/gateway",
     },

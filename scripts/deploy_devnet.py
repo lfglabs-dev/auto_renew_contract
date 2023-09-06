@@ -2,6 +2,9 @@
 import logging
 from asyncio import run
 
+from starknet_py.hash.selector import get_selector_from_name
+from starknet_py.net.client_models import Call
+
 from utils.constants import COMPILED_CONTRACTS_DEVNET, ETH_TOKEN_ADDRESS
 from utils.starknet import (
     declare_v2,
@@ -19,6 +22,7 @@ from utils.starknet import (
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
 
 
 # %% Main
@@ -42,6 +46,15 @@ async def main():
         
         deployments = {}
         deployments["auto_renew_contract_Pricing"] = await deploy_v2("auto_renew_contract_Pricing", ETH_TOKEN_ADDRESS)
+
+        # call = Call(
+        #     to_addr=deployments["auto_renew_contract_Pricing"]["address"],
+        #     selector=get_selector_from_name("compute_buy_price"),
+        #     calldata=[7, 365],
+        # )
+        # price_domain = await account.client.call_contract(call)
+        # print('domain_price', price_domain)
+
         deployments["auto_renew_contract_StarknetID"] = await deploy_v2("auto_renew_contract_StarknetID")
         deployments["auto_renew_contract_Naming"] = await deploy_v2(
             "auto_renew_contract_Naming",
