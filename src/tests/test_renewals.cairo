@@ -15,7 +15,9 @@ use super::constants::{
 use super::mocks::identity::Identity;
 use super::mocks::identity::{IIdentityDispatcher, IIdentityDispatcherTrait};
 use super::mocks::erc20::ERC20;
-use openzeppelin::token::erc20::interface::{IERC20, IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin::token::erc20::interface::{
+    IERC20Camel, IERC20CamelDispatcher, IERC20CamelDispatcherTrait
+};
 use naming::naming::main::Naming;
 use naming::interface::naming::{INamingDispatcher, INamingDispatcherTrait};
 use naming::pricing::Pricing;
@@ -43,12 +45,12 @@ fn test_toggle_renewal() {
     let limit_price: u256 = 600.into();
     autorenewal.enable_renewals(TH0RGAL_DOMAIN(), limit_price, 0);
     let renew = autorenewal.is_renewing(TH0RGAL_DOMAIN(), ADMIN(), limit_price);
-    assert(renew == 1, 'renew should be true');
+    assert(renew, 'renew should be true');
 
     // Should test autorenewal has been untoggled for OTHER_DOMAIN by USER() for limit_price
     autorenewal.disable_renewals(TH0RGAL_DOMAIN(), limit_price);
     let renew = autorenewal.is_renewing(TH0RGAL_DOMAIN(), ADMIN(), limit_price);
-    assert(renew == 0, 'renew should be false');
+    assert(!renew, 'renew should be false');
 }
 
 #[test]
@@ -251,7 +253,7 @@ fn test_renew_with_metadata() {
 
     // Should renew domain & send tax price to tax contract
     autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, tax_price, metadata);
-    let tax_balance = erc20.balance_of(tax_contract);
+    let tax_balance = erc20.balanceOf(tax_contract);
     assert(tax_balance == tax_price, 'tax balance should be 100');
 }
 

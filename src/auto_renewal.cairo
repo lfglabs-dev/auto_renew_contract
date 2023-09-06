@@ -5,7 +5,7 @@ trait IAutoRenewal<TContractState> {
         domain: felt252,
         renewer: starknet::ContractAddress,
         limit_price: u256
-    ) -> u64;
+    ) -> bool;
 
     fn get_contracts(
         self: @TContractState
@@ -51,7 +51,7 @@ mod AutoRenewal {
 
     use debug::PrintTrait;
 
-    use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use openzeppelin::token::erc20::interface::{IERC20CamelDispatcher, IERC20CamelDispatcherTrait};
     use naming::interface::naming::{INamingDispatcher, INamingDispatcherTrait};
 
     #[storage]
@@ -62,7 +62,7 @@ mod AutoRenewal {
         admin: ContractAddress,
         can_renew: bool,
         // (renewer, domain, limit_price) -> 1 or 0
-        _is_renewing: LegacyMap::<(ContractAddress, felt252, u256), u64>,
+        _is_renewing: LegacyMap::<(ContractAddress, felt252, u256), bool>,
         // (renewer, domain) -> timestamp
         last_renewal: LegacyMap::<(ContractAddress, felt252), u64>,
     }
@@ -129,7 +129,7 @@ mod AutoRenewal {
     impl AutoRenewalImpl of super::IAutoRenewal<ContractState> {
         fn is_renewing(
             self: @ContractState, domain: felt252, renewer: ContractAddress, limit_price: u256
-        ) -> u64 {
+        ) -> bool {
             self._is_renewing.read((renewer, domain, limit_price))
         }
 
@@ -143,7 +143,7 @@ mod AutoRenewal {
             ref self: ContractState, domain: felt252, limit_price: u256, meta_hash: felt252
         ) {
             let caller = get_caller_address();
-            self._is_renewing.write((caller, domain, limit_price), 1_u64);
+            self._is_renewing.write((caller, domain, limit_price), true);
 
             // we erase the previous renewal date
             self.last_renewal.write((caller, domain), 0);
@@ -158,7 +158,7 @@ mod AutoRenewal {
 
         fn disable_renewals(ref self: ContractState, domain: felt252, limit_price: u256) {
             let caller = get_caller_address();
-            self._is_renewing.write((caller, domain, limit_price), 0);
+            self._is_renewing.write((caller, domain, limit_price), false);
 
             self
                 .emit(
@@ -244,7 +244,7 @@ mod AutoRenewal {
         ) {
             let naming = self.naming_contract.read();
             let can_renew = self._is_renewing.read((renewer, root_domain, limit_price));
-            assert(can_renew == 1, 'Renewal not toggled for domain');
+            assert(can_renew, 'Renewal not toggled for domain');
 
             // Check domain has not been renew yet this year
             let block_timestamp = get_block_timestamp();
@@ -265,15 +265,15 @@ mod AutoRenewal {
             let erc20 = self.erc20_contract.read();
             let _tax_contract = self.tax_contract.read();
             // Transfer limit_price + tax price
-            IERC20Dispatcher { contract_address: erc20 }
-                .transfer_from(renewer, contract, limit_price + tax_price);
+            IERC20CamelDispatcher { contract_address: erc20 }
+                .transferFrom(renewer, contract, limit_price + tax_price);
             // transfer tax price to tax contract address
-            IERC20Dispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
+            IERC20CamelDispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
             // Approve & renew domain
-            IERC20Dispatcher { contract_address: erc20 }.approve(naming, limit_price);
+            IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, limit_price);
             INamingDispatcher { contract_address: naming }
                 .renew(root_domain, 365_u16, ContractAddressZeroable::zero(), 0, metadata);
-            IERC20Dispatcher { contract_address: erc20 }.approve(naming, 0.into());
+            IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, 0.into());
 
             self
                 .emit(
