@@ -27,7 +27,7 @@ NETWORKS = {
     "devnet": {
         "name": "devnet",
         "explorer_url": "",
-        "rpc_url": "http://127.0.0.1:5050/rpc",
+        "rpc_url": "http://0.0.0.0:5050/rpc",
         "feeder_gateway_url": "http://localhost:5050/feeder_gateway",
         "gateway_url": "http://localhost:5050/gateway",
     },
@@ -68,7 +68,9 @@ SOURCE_DIR = Path("src")
 CONTRACTS = {p.stem: p for p in list(SOURCE_DIR.glob("**/*.cairo"))}
 
 BUILD_DIR = Path("target/release")
+BUILD_DIR_V0 = Path("cairo0_abi")
 BUILD_DIR.mkdir(exist_ok=True, parents=True)
+BUILD_DIR_V0.mkdir(exist_ok=True, parents=True)
 DEPLOYMENTS_DIR = Path("deployments") / NETWORK["name"]
 DEPLOYMENTS_DIR.mkdir(exist_ok=True, parents=True)
 
@@ -77,10 +79,14 @@ COMPILED_CONTRACTS = [
 ]
 
 COMPILED_CONTRACTS_DEVNET = [
-    {"contract_name": "auto_renew_contract_Naming", "is_account_contract": False},
-    {"contract_name": "auto_renew_contract_Pricing", "is_account_contract": False},
-    {"contract_name": "auto_renew_contract_StarknetID", "is_account_contract": False},
     {"contract_name": "auto_renew_contract_AutoRenewal", "is_account_contract": False},
+]
+
+COMPILED_CONTRACTS_DEVNET_V0 = [
+    {"contract_name": "pricing", "is_account_contract": False},
+    {"contract_name": "starknetid", "is_account_contract": False},
+    {"contract_name": "naming", "is_account_contract": False},
+    {"contract_name": "proxy", "is_account_contract": False},
 ]
 
 # Testnet

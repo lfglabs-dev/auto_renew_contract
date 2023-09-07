@@ -4,7 +4,9 @@ use super::constants::ADMIN;
 use super::mocks::identity::Identity;
 use super::mocks::identity::{IIdentityDispatcher, IIdentityDispatcherTrait};
 use super::mocks::erc20::ERC20;
-use openzeppelin::token::erc20::interface::{IERC20, IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin::token::erc20::interface::{
+    IERC20Camel, IERC20CamelDispatcher, IERC20CamelDispatcherTrait
+};
 use naming::naming::main::Naming;
 use naming::interface::naming::{INamingDispatcher, INamingDispatcherTrait};
 use naming::pricing::Pricing;
@@ -15,7 +17,7 @@ use auto_renew_contract::auto_renewal::{
 use auto_renew_contract::auto_renewal::AutoRenewal::{ContractState as AutoRenewalContractState,};
 
 fn deploy_contracts() -> (
-    IERC20Dispatcher,
+    IERC20CamelDispatcher,
     IPricingDispatcher,
     IIdentityDispatcher,
     INamingDispatcher,
@@ -37,7 +39,7 @@ fn deploy_contracts() -> (
     );
 
     (
-        IERC20Dispatcher { contract_address: eth },
+        IERC20CamelDispatcher { contract_address: eth },
         IPricingDispatcher { contract_address: pricing },
         IIdentityDispatcher { contract_address: identity },
         INamingDispatcher { contract_address: naming },

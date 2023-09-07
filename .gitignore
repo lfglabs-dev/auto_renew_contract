@@ -220,3 +220,4 @@ pip-selfcheck.json
 
 target
 deployments/
+cairo0_abi/

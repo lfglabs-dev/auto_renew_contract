@@ -4,6 +4,7 @@
 import json
 import logging
 from pathlib import Path
+from copy import deepcopy
 
 import requests
 from caseconverter import snakecase
@@ -17,21 +18,25 @@ from starknet_py.common import create_casm_class, create_sierra_compiled_contrac
 from starknet_py.hash.casm_class_hash import compute_casm_class_hash
 from starknet_py.hash.sierra_class_hash import compute_sierra_class_hash
 from starknet_py.contract import Contract
+from starknet_py.common import create_compiled_contract
+from starknet_py.hash.class_hash import compute_class_hash
+from starknet_py.net.client_models import Call
+from starknet_py.net.account.account import Account
+from starknet_py.net.udc_deployer.deployer import Deployer
+
 
 from utils.constants import (
     BUILD_DIR,
-    # CONTRACTS,
+    BUILD_DIR_V0,
     DEPLOYMENTS_DIR,
     ETH_TOKEN_ADDRESS,
     NETWORK,
     GATEWAY_CLIENT,
-    # SOURCE_DIR,
 )
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
 
 def int_to_uint256(value):
     value = int(value)
@@ -119,10 +124,59 @@ def get_deployments():
 def get_artifact(contract_name):
     return BUILD_DIR / f"{contract_name}.json"
 
+def get_v0_artifact(contract_name):
+    return BUILD_DIR_V0 / f"{contract_name}.json"
 
 def get_alias(contract_name):
     return snakecase(contract_name)
 
+async def declare(contract_name):
+    logger.info(f"ℹ️  Declaring {contract_name}")
+    artifact = get_v0_artifact(contract_name)
+    compiled_contract = Path(artifact).read_text()
+    contract_class = create_compiled_contract(compiled_contract=compiled_contract)
+    class_hash = compute_class_hash(contract_class=deepcopy(contract_class))
+    try:
+        await GATEWAY_CLIENT.get_class_by_hash(class_hash)
+        logger.info(f"✅ Class already declared, skipping")
+        return class_hash
+    except Exception:
+        pass
+    account = await get_starknet_account()
+
+    declare_transaction = await account.sign_declare_transaction(
+        compiled_contract=compiled_contract, max_fee=int(1e16)
+    )
+
+    resp = await account.client.declare(transaction=declare_transaction)
+    await account.client.wait_for_tx(resp.transaction_hash)
+
+    logger.info(f"✅ {contract_name} class hash: {hex(resp.class_hash)}")
+    return resp.class_hash
+
+async def deploy(contract_name, *args):
+    logger.info(f"ℹ️  Deploying {contract_name}")
+    artifact = get_v0_artifact(contract_name)
+    compiled_contract = Path(artifact).read_text()
+    abi = json.loads(compiled_contract)["abi"]
+    contract_class = create_compiled_contract(compiled_contract=compiled_contract)
+    class_hash = compute_class_hash(contract_class=deepcopy(contract_class))
+    account = await get_starknet_account()
+    deploy_result = await Contract.deploy_contract(
+        account=account,
+        class_hash=class_hash,
+        abi=abi,
+        constructor_args=list(args),
+        max_fee=int(1e17),
+    )
+    await deploy_result.wait_for_acceptance()
+    logger.info(
+        f"{contract_name} deployed at: {hex(deploy_result.deployed_contract.address)}"
+    )
+    return {
+        "address": deploy_result.deployed_contract.address,
+        "tx": deploy_result.hash,
+    }
 
 def get_tx_url(tx_hash: int) -> str:
     return f"{NETWORK['explorer_url']}/tx/0x{tx_hash:064x}"
@@ -223,19 +277,67 @@ async def invoke(contract_name, function_name, inputs, address=None):
     )
     return response.transaction_hash
 
-async def invoke_cairo0(contract_name, function_name, *inputs, address=None):
+async def invoke_cairo0(contract_name, function_name, inputs, address=None):
     account = await get_starknet_account()
     deployments = get_deployments()
     contract = Contract(
         deployments[contract_name]["address"] if address is None else address,
-        json.load(open(get_artifact(contract_name)))["abi"],
+        json.load(open(get_v0_artifact(contract_name)))["abi"],
         account,
     )
     call = contract.functions[function_name].prepare(*inputs, max_fee=int(1e17))
     logger.info(f"ℹ️  Invoking {contract_name}.{function_name}({json.dumps(inputs)})")
-    response = await account.execute(call, max_fee=int(1e17)).wait_for_acceptance()
+    response = await account.execute(call, max_fee=int(1e17))
+    await account.client.wait_for_tx(response.transaction_hash)
     logger.info(
         f"✅ {contract_name}.{function_name} invoked at tx: %s",
         hex(response.transaction_hash),
     )
     return response.transaction_hash
+
+async def deploy_with_proxy(contract_name, calldata):
+    logger.info(f"ℹ️  Deploying with proxy {contract_name}")
+    artifact = get_v0_artifact("proxy")
+    compiled_contract = Path(artifact).read_text()
+    abi = json.loads(compiled_contract)["abi"]
+
+    class_hash = get_declarations()
+    proxy_contract_class_hash = class_hash["proxy"]
+    impl_contract_class_hash = class_hash[contract_name]
+
+    account = await get_starknet_account()
+
+    deployer = Deployer()
+    deploy_call, address = deployer.create_contract_deployment(
+        class_hash=proxy_contract_class_hash,
+        abi=abi,
+        cairo_version=0,
+        calldata={
+            "implementation_hash": impl_contract_class_hash,
+            "selector": get_selector_from_name("initializer"),
+            "calldata": calldata,
+        },
+    )
+    deploy_result = await account.execute(deploy_call, max_fee=int(1e16))
+    await account.client.wait_for_tx(deploy_result.transaction_hash)
+
+    logger.info(
+        f" ✅ {contract_name} deployed at: {hex(address)}"
+    )
+
+    return {
+        "address": address,
+        "tx": deploy_result.transaction_hash,
+    }
+
+async def call_v0(contract_name, function_name, inputs, address=None):
+    account = await get_starknet_account()
+    deployments = get_deployments()
+    call = Call(
+        to_addr=int(deployments[contract_name]["address"], 16) if address is None else address, 
+        selector=get_selector_from_name(function_name), 
+        calldata=inputs
+    )
+    logger.info(f"ℹ️  Calling {contract_name}.{function_name}({json.dumps(inputs)})")
+    response = await account.client.call_contract(call)
+    return response
