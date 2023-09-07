@@ -60,6 +60,7 @@ mod AutoRenewal {
         erc20_contract: ContractAddress,
         tax_contract: ContractAddress,
         admin: ContractAddress,
+        whitelisted_renewer: ContractAddress,
         can_renew: bool,
         // (renewer, domain, limit_price) -> 1 or 0
         _is_renewing: LegacyMap::<(ContractAddress, felt252, u256), bool>,
@@ -116,12 +117,14 @@ mod AutoRenewal {
         naming_addr: ContractAddress,
         erc20_addr: ContractAddress,
         tax_addr: ContractAddress,
-        admin_addr: ContractAddress
+        admin_addr: ContractAddress,
+        whitelisted_renewer: ContractAddress
     ) {
         self.naming_contract.write(naming_addr);
         self.erc20_contract.write(erc20_addr);
         self.tax_contract.write(tax_addr);
         self.admin.write(admin_addr);
+        self.whitelisted_renewer.write(whitelisted_renewer);
         self.can_renew.write(true);
         // allowing naming 2^251-1, aka infinite approval according to its implementation
         // when moving funds, the storage variable won't be updated, saving gas
@@ -184,6 +187,9 @@ mod AutoRenewal {
             metadata: felt252,
         ) {
             assert(self.can_renew.read(), 'Contract is disabled');
+            assert(
+                get_caller_address() == self.whitelisted_renewer.read(), 'You are not whitelisted'
+            );
             self._renew(root_domain, renewer, limit_price, tax_price, metadata);
         }
 
@@ -196,6 +202,9 @@ mod AutoRenewal {
             metadata: array::Span::<felt252>,
         ) {
             assert(self.can_renew.read(), 'Contract is disabled');
+            assert(
+                get_caller_address() == self.whitelisted_renewer.read(), 'You are not whitelisted'
+            );
             assert(domain.len() == renewer.len(), 'Domain & renewer mismatch len');
             assert(domain.len() == limit_price.len(), 'Domain & price mismatch len');
 

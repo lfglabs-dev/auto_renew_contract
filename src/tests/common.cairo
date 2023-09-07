@@ -15,6 +15,9 @@ use auto_renew_contract::auto_renewal::{
     AutoRenewal, IAutoRenewal, IAutoRenewalDispatcher, IAutoRenewalDispatcherTrait,
 };
 use auto_renew_contract::auto_renewal::AutoRenewal::{ContractState as AutoRenewalContractState,};
+use starknet::{
+    get_contract_address, testing::set_contract_address, contract_address::ContractAddressZeroable
+};
 
 fn deploy_contracts() -> (
     IERC20CamelDispatcher,
@@ -35,8 +38,10 @@ fn deploy_contracts() -> (
     );
     // autorenewal
     let renewal = utils::deploy(
-        AutoRenewal::TEST_CLASS_HASH, array![naming.into(), eth.into(), 0x111, ADMIN().into()]
+        AutoRenewal::TEST_CLASS_HASH,
+        array![naming.into(), eth.into(), 0x111, ADMIN().into(), ADMIN().into()]
     );
+    set_contract_address(ADMIN());
 
     (
         IERC20CamelDispatcher { contract_address: eth },
