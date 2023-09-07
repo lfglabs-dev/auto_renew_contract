@@ -36,7 +36,11 @@ trait IAutoRenewal<TContractState> {
 
     fn update_admin(ref self: TContractState, new_admin: starknet::ContractAddress,);
     fn update_tax_contract(ref self: TContractState, new_addr: starknet::ContractAddress,);
+    fn update_whitelisted_renewer(
+        ref self: TContractState, whitelisted_renewer: starknet::ContractAddress
+    );
     fn toggle_off(ref self: TContractState);
+    fn claim(ref self: TContractState, amount: u256);
 }
 
 #[starknet::contract]
@@ -60,6 +64,7 @@ mod AutoRenewal {
         erc20_contract: ContractAddress,
         tax_contract: ContractAddress,
         admin: ContractAddress,
+        whitelisted_renewer: ContractAddress,
         can_renew: bool,
         // (renewer, domain, limit_price) -> 1 or 0
         _is_renewing: LegacyMap::<(ContractAddress, felt252, u256), bool>,
@@ -116,13 +121,19 @@ mod AutoRenewal {
         naming_addr: ContractAddress,
         erc20_addr: ContractAddress,
         tax_addr: ContractAddress,
-        admin_addr: ContractAddress
+        admin_addr: ContractAddress,
+        whitelisted_renewer: ContractAddress
     ) {
         self.naming_contract.write(naming_addr);
         self.erc20_contract.write(erc20_addr);
         self.tax_contract.write(tax_addr);
         self.admin.write(admin_addr);
+        self.whitelisted_renewer.write(whitelisted_renewer);
         self.can_renew.write(true);
+        // allowing naming 2^251-1, aka infinite approval according to its implementation
+        // when moving funds, the storage variable won't be updated, saving gas
+        IERC20CamelDispatcher { contract_address: erc20_addr }
+            .approve(naming_addr, integer::BoundedInt::max());
     }
 
     #[external(v0)]
@@ -156,6 +167,7 @@ mod AutoRenewal {
                 )
         }
 
+        // limit_price can be found via the EnabledRenewal events
         fn disable_renewals(ref self: ContractState, domain: felt252, limit_price: u256) {
             let caller = get_caller_address();
             self._is_renewing.write((caller, domain, limit_price), false);
@@ -177,6 +189,9 @@ mod AutoRenewal {
             metadata: felt252,
         ) {
             assert(self.can_renew.read(), 'Contract is disabled');
+            assert(
+                get_caller_address() == self.whitelisted_renewer.read(), 'You are not whitelisted'
+            );
             self._renew(root_domain, renewer, limit_price, tax_price, metadata);
         }
 
@@ -189,6 +204,9 @@ mod AutoRenewal {
             metadata: array::Span::<felt252>,
         ) {
             assert(self.can_renew.read(), 'Contract is disabled');
+            assert(
+                get_caller_address() == self.whitelisted_renewer.read(), 'You are not whitelisted'
+            );
             assert(domain.len() == renewer.len(), 'Domain & renewer mismatch len');
             assert(domain.len() == limit_price.len(), 'Domain & price mismatch len');
 
@@ -222,9 +240,23 @@ mod AutoRenewal {
             self.admin.write(new_addr);
         }
 
+        fn update_whitelisted_renewer(
+            ref self: ContractState, whitelisted_renewer: starknet::ContractAddress
+        ) {
+            assert(get_caller_address() == self.admin.read(), 'Caller not admin');
+            self.whitelisted_renewer.write(whitelisted_renewer);
+        }
+
         fn toggle_off(ref self: ContractState) {
             assert(get_caller_address() == self.admin.read(), 'Caller not admin');
             self.can_renew.write(false);
+        }
+
+        fn claim(ref self: ContractState, amount: u256) {
+            assert(get_caller_address() == self.admin.read(), 'Caller not admin');
+            let erc20 = self.erc20_contract.read();
+            IERC20CamelDispatcher { contract_address: erc20 }
+                .transfer(get_caller_address(), amount);
         }
     }
 
@@ -260,21 +292,10 @@ mod AutoRenewal {
             assert(expiry <= block_timestamp + (86400_u64 * 30_u64), 'Domain not set to expire');
 
             // Renew domain
+            // last_renewal is updated before external contract calls to prevent reentrancy attacks
+            // if the naming contract was compromised
             self.last_renewal.write((renewer, root_domain), block_timestamp);
-            let contract = get_contract_address();
-            let erc20 = self.erc20_contract.read();
-            let _tax_contract = self.tax_contract.read();
-            // Transfer limit_price + tax price
-            IERC20CamelDispatcher { contract_address: erc20 }
-                .transferFrom(renewer, contract, limit_price + tax_price);
-            // transfer tax price to tax contract address
-            IERC20CamelDispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
-            // Approve & renew domain
-            IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, limit_price);
-            INamingDispatcher { contract_address: naming }
-                .renew(root_domain, 365_u16, ContractAddressZeroable::zero(), 0, metadata);
-            IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, 0.into());
-
+            // events is sent before calls to other contracts to prevent a reordering via reentrancy attack
             self
                 .emit(
                     Event::DomainRenewed(
@@ -286,7 +307,21 @@ mod AutoRenewal {
                             timestamp: block_timestamp
                         }
                     )
-                )
+                );
+            let contract = get_contract_address();
+            let erc20 = self.erc20_contract.read();
+            let _tax_contract = self.tax_contract.read();
+
+            // Transfer limit_price (including tax), will be canceled if the tx fails
+            IERC20CamelDispatcher { contract_address: erc20 }
+                .transferFrom(renewer, contract, limit_price);
+            // transfer tax price to tax contract address
+            IERC20CamelDispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
+            // spend the remaining money to renew the domain
+            // if something remains after this, it can be considered as lost by the user,
+            // we keep the ability to claim it back but can't guarantee we will do it
+            INamingDispatcher { contract_address: naming }
+                .renew(root_domain, 365_u16, ContractAddressZeroable::zero(), 0, metadata);
         }
     }
 }
