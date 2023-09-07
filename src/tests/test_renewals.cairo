@@ -242,17 +242,18 @@ fn test_renew_with_metadata() {
     // buy TH0RGAL_DOMAIN & OTHER_DOMAIN
     testing::set_contract_address(ADMIN());
     let (_, price) = pricing.compute_buy_price(7, 365);
-    erc20.approve(naming.contract_address, price);
+    let limit_price = price + tax_price;
+    erc20.approve(naming.contract_address, limit_price);
     starknetid.mint(token_id);
     naming.buy(token_id, TH0RGAL_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, metadata);
 
-    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), price, metadata);
+    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), limit_price, metadata);
     erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
 
     testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // Should renew domain & send tax price to tax contract
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, tax_price, metadata);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), limit_price, tax_price, metadata);
     let tax_balance = erc20.balanceOf(tax_contract);
     assert(tax_balance == tax_price, 'tax balance should be 100');
 }

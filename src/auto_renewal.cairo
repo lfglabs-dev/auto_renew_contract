@@ -123,6 +123,12 @@ mod AutoRenewal {
         self.tax_contract.write(tax_addr);
         self.admin.write(admin_addr);
         self.can_renew.write(true);
+        // allowing naming 2^251-1, aka infinite approval according to its implementation
+        // when moving funds, the storage variable won't be updated, saving gas
+        IERC20CamelDispatcher { contract_address: erc20_addr }
+            .approve(
+                naming_addr, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+            );
     }
 
     #[external(v0)]
@@ -264,22 +270,7 @@ mod AutoRenewal {
             // last_renewal is updated before external contract calls to prevent reentrancy attacks
             // if the naming contract was compromised
             self.last_renewal.write((renewer, root_domain), block_timestamp);
-            let contract = get_contract_address();
-            let erc20 = self.erc20_contract.read();
-            let _tax_contract = self.tax_contract.read();
-            // Transfer limit_price (including tax)
-            IERC20CamelDispatcher { contract_address: erc20 }
-                .transferFrom(renewer, contract, limit_price);
-            // transfer tax price to tax contract address
-            IERC20CamelDispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
-            // Approve & renew domain (approving limit_price is more than necessary if tax is not null)
-            IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, limit_price);
-            // reentrancy could only happen here if naming was compromised
-            // and it would only allow to reorder events
-            INamingDispatcher { contract_address: naming }
-                .renew(root_domain, 365_u16, ContractAddressZeroable::zero(), 0, metadata);
-            IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, 0.into());
-
+            // events is sent before calls to other contracts a reordering via reentrancy attack
             self
                 .emit(
                     Event::DomainRenewed(
@@ -291,7 +282,21 @@ mod AutoRenewal {
                             timestamp: block_timestamp
                         }
                     )
-                )
+                );
+            let contract = get_contract_address();
+            let erc20 = self.erc20_contract.read();
+            let _tax_contract = self.tax_contract.read();
+
+            // Transfer limit_price (including tax), will be canceled if the tx fails
+            IERC20CamelDispatcher { contract_address: erc20 }
+                .transferFrom(renewer, contract, limit_price);
+            // transfer tax price to tax contract address
+            IERC20CamelDispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
+            // spend the remaining money to renew the domain
+            // if something remains after this, it can be considered as lost by the user,
+            // we keep the ability to claim it back but can't guarantee we will do it
+            INamingDispatcher { contract_address: naming }
+                .renew(root_domain, 365_u16, ContractAddressZeroable::zero(), 0, metadata);
         }
     }
 }

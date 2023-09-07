@@ -24,7 +24,10 @@ You can create as many flows of spendings as you want, for multiple domains or e
 When you create a flow of spending, you specify for which domain it is valid and what yearly allowance (limit_price) you give to this contract. To disable this allowance you need to use the same account and provide the same domain and limit_price. We emit events to allow users to easily retrieve their existing allowances (so they will be able to see them in the front).
 Using limit_price as key and not a value in the storage mapping is a storage optimization.
 
-### 4. Admin
+### 4. Your flow capacity is what will be spent
+The flow capacity (limit_price) is what will be taken from your account, even if the domain is less expensive. This allows us to optimize the contract execution to not want to encourage users to allow more than require. We maintain the technical possibility of recovering the funds in case someone makes a mistake but we do not guarantee the fact of returning them, especially for a small amount.
+
+### 5. Admin
 This contract is controled by an admin who has the ability to fully disable the contract renewals for ever (if a vulnerability was found or the contract deprecated). It has also the power to change the allowed renewer (address allowed to renew domains of other people). This allowed renewer has to be trusted by StarknetID (but not the users) because it is in control of the tax_price. If the admin or renewer was compromised, the latter would still do its job but do not send tax money to StarknetID.
 
 # How to build/test?
