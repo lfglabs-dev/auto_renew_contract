@@ -295,7 +295,7 @@ mod AutoRenewal {
             // last_renewal is updated before external contract calls to prevent reentrancy attacks
             // if the naming contract was compromised
             self.last_renewal.write((renewer, root_domain), block_timestamp);
-            // events is sent before calls to other contracts a reordering via reentrancy attack
+            // events is sent before calls to other contracts to prevent a reordering via reentrancy attack
             self
                 .emit(
                     Event::DomainRenewed(
