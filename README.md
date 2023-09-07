@@ -10,6 +10,23 @@ Here are the guarantees offered by this contract:
 
 This contract is not upgradeable, we cannot change its code. This means that even if we wanted to be dishonest, we could not circumvent these rules.
 
+# Technical notes
+
+Here are some technical choices we made:
+
+### 1. You can renew a domain you don't own.
+This is useful if you want your domain to be controled by a smartcontract but you still want to pay for its renewal.
+
+### 2. You can create multiple flows of spendings
+You can create as many flows of spendings as you want, for multiple domains or even the same domain. If you open two flows for the same domain it will still be renewed only once a year because we can only renew it if it expires in less than a month.
+
+### 3. You need initial parameters to disable a flow of spending
+When you create a flow of spending, you specify for which domain it is valid and what yearly allowance (limit_price) you give to this contract. To disable this allowance you need to use the same account and provide the same domain and limit_price. We emit events to allow users to easily retrieve their existing allowances (so they will be able to see them in the front).
+Using limit_price as key and not a value in the storage mapping is a storage optimization.
+
+### 4. Admin
+This contract is controled by an admin who has the ability to fully disable the contract renewals for ever (if a vulnerability was found or the contract deprecated). It has also the power to change the allowed renewer (address allowed to renew domains of other people). This allowed renewer has to be trusted by StarknetID (but not the users) because it is in control of the tax_price. If the admin or renewer was compromised, the latter would still do its job but do not send tax money to StarknetID.
+
 # How to build/test?
 
 This was built using scarb.

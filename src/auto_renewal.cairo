@@ -156,6 +156,7 @@ mod AutoRenewal {
                 )
         }
 
+        // limit_price can be found via the EnabledRenewal events
         fn disable_renewals(ref self: ContractState, domain: felt252, limit_price: u256) {
             let caller = get_caller_address();
             self._is_renewing.write((caller, domain, limit_price), false);
@@ -260,6 +261,8 @@ mod AutoRenewal {
             assert(expiry <= block_timestamp + (86400_u64 * 30_u64), 'Domain not set to expire');
 
             // Renew domain
+            // last_renewal is updated before external contract calls to prevent reentrancy attacks
+            // if the naming contract was compromised
             self.last_renewal.write((renewer, root_domain), block_timestamp);
             let contract = get_contract_address();
             let erc20 = self.erc20_contract.read();
@@ -271,6 +274,8 @@ mod AutoRenewal {
             IERC20CamelDispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
             // Approve & renew domain
             IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, limit_price);
+            // reentrancy could only happen here if naming was compromised
+            // and it would only allow to reorder events
             INamingDispatcher { contract_address: naming }
                 .renew(root_domain, 365_u16, ContractAddressZeroable::zero(), 0, metadata);
             IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, 0.into());
