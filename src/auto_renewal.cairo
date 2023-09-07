@@ -267,12 +267,12 @@ mod AutoRenewal {
             let contract = get_contract_address();
             let erc20 = self.erc20_contract.read();
             let _tax_contract = self.tax_contract.read();
-            // Transfer limit_price + tax price
+            // Transfer limit_price (including tax)
             IERC20CamelDispatcher { contract_address: erc20 }
-                .transferFrom(renewer, contract, limit_price + tax_price);
+                .transferFrom(renewer, contract, limit_price);
             // transfer tax price to tax contract address
             IERC20CamelDispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
-            // Approve & renew domain
+            // Approve & renew domain (approving limit_price is more than necessary if tax is not null)
             IERC20CamelDispatcher { contract_address: erc20 }.approve(naming, limit_price);
             // reentrancy could only happen here if naming was compromised
             // and it would only allow to reorder events
