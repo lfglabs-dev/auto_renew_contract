@@ -36,7 +36,11 @@ trait IAutoRenewal<TContractState> {
 
     fn update_admin(ref self: TContractState, new_admin: starknet::ContractAddress,);
     fn update_tax_contract(ref self: TContractState, new_addr: starknet::ContractAddress,);
+    fn update_whitelisted_renewer(
+        ref self: TContractState, whitelisted_renewer: starknet::ContractAddress
+    );
     fn toggle_off(ref self: TContractState);
+    fn claim(ref self: TContractState, amount: u256);
 }
 
 #[starknet::contract]
@@ -238,9 +242,23 @@ mod AutoRenewal {
             self.admin.write(new_addr);
         }
 
+        fn update_whitelisted_renewer(
+            ref self: ContractState, whitelisted_renewer: starknet::ContractAddress
+        ) {
+            assert(get_caller_address() == self.admin.read(), 'Caller not admin');
+            self.whitelisted_renewer.write(whitelisted_renewer);
+        }
+
         fn toggle_off(ref self: ContractState) {
             assert(get_caller_address() == self.admin.read(), 'Caller not admin');
             self.can_renew.write(false);
+        }
+
+        fn claim(ref self: ContractState, amount: u256) {
+            assert(get_caller_address() == self.admin.read(), 'Caller not admin');
+            let erc20 = self.erc20_contract.read();
+            IERC20CamelDispatcher { contract_address: erc20 }
+                .transfer(get_caller_address(), amount);
         }
     }
 

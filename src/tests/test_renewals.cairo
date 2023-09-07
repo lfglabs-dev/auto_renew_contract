@@ -258,6 +258,56 @@ fn test_renew_with_metadata() {
     assert(tax_balance == tax_price, 'tax balance should be 100');
 }
 
+
+#[test]
+#[available_gas(20000000)]
+fn test_claim() {
+    // initialize contracts
+    let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
+    testing::set_contract_address(ADMIN());
+    erc20.transfer(autorenewal.contract_address, 123);
+    let my_bal = erc20.balanceOf(ADMIN());
+    autorenewal.claim(123);
+    let my_new_bal = erc20.balanceOf(ADMIN());
+    assert(my_new_bal == my_bal + 123, 'Did not receive claim');
+}
+
+
+#[test]
+#[available_gas(20000000)]
+fn test_renew_with_updated_whitelisted_renewer() {
+    // initialize contracts
+    let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
+    testing::set_block_timestamp(BLOCK_TIMESTAMP());
+    let token_id: u128 = 1;
+
+    // buy TH0RGAL_DOMAIN for a year
+    testing::set_contract_address(ADMIN());
+    let (_, price) = pricing.compute_buy_price(7, 365);
+    erc20.approve(naming.contract_address, price);
+    starknetid.mint(token_id);
+    naming.buy(token_id, TH0RGAL_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, 0);
+
+    testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
+
+    // Toggle renewal & approve ERC20 transfer
+    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), price, 0);
+    erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
+
+    // Should test renewing TH0RGAL_DOMAIN for a year
+    let expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
+    assert(expiry == (86400 * 365) + BLOCK_TIMESTAMP().into(), 'expiry should be 365 days');
+
+    let new_renewer = contract_address_const::<0x456>();
+    autorenewal.update_whitelisted_renewer(new_renewer);
+    testing::set_contract_address(new_renewer);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, 0, 0);
+
+    let new_expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
+    let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
+    assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
+}
+
 #[test]
 #[available_gas(20000000)]
 #[should_panic(expected: ('Caller not admin', 'ENTRYPOINT_FAILED',))]
@@ -280,6 +330,31 @@ fn test_toggle_off_contract_fail() {
     // Should revert because OTHER() is not admin
     testing::set_contract_address(OTHER());
     autorenewal.toggle_off();
+}
+
+
+#[test]
+#[available_gas(20000000)]
+#[should_panic(expected: ('Caller not admin', 'ENTRYPOINT_FAILED',))]
+fn test_update_whitelisted_renewer_fail() {
+    // initialize contracts
+    let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
+
+    // Should revert because OTHER() is not admin
+    testing::set_contract_address(OTHER());
+    autorenewal.update_whitelisted_renewer(contract_address_const::<0x456>());
+}
+
+#[test]
+#[available_gas(20000000)]
+#[should_panic(expected: ('Caller not admin', 'ENTRYPOINT_FAILED',))]
+fn test_claim_fail() {
+    // initialize contracts
+    let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
+
+    // Should revert because OTHER() is not admin
+    testing::set_contract_address(OTHER());
+    autorenewal.claim(123);
 }
 
 #[test]
