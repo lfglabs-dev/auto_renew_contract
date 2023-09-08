@@ -2,7 +2,15 @@
 import logging
 from asyncio import run
 
-from utils.constants import COMPILED_CONTRACTS, ETH_TOKEN_ADDRESS, NAMING_ADDRESS, PRICING_ADDRESS
+from utils.constants import (
+    COMPILED_CONTRACTS,
+    ETH_TOKEN_ADDRESS,
+    NAMING_ADDRESS,
+    PRICING_ADDRESS,
+    TAX_ADDRESS,
+    ADMIN_ADDRESS,
+    RENEWER_ADDRESS,
+)
 from utils.starknet import (
     declare_v2,
     deploy_v2,
@@ -31,17 +39,21 @@ async def main():
 
     # %% Deployments
     class_hash = get_declarations()
-    print('class_hash', class_hash)
-    
+    print("class_hash", class_hash)
+
     deployments = {}
     deployments["auto_renew_contract_AutoRenewal"] = await deploy_v2(
         "auto_renew_contract_AutoRenewal",
         NAMING_ADDRESS,
         ETH_TOKEN_ADDRESS,
+        TAX_ADDRESS,
+        ADMIN_ADDRESS,
+        RENEWER_ADDRESS,
     )
     dump_deployments(deployments)
 
     logger.info("✅ Configuration Complete")
+
 
 # %% Run
 if __name__ == "__main__":
