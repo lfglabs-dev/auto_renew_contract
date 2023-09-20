@@ -237,7 +237,7 @@ mod AutoRenewal {
 
         fn update_tax_contract(ref self: ContractState, new_addr: ContractAddress,) {
             assert(get_caller_address() == self.admin.read(), 'Caller not admin');
-            self.admin.write(new_addr);
+            self.tax_contract.write(new_addr);
         }
 
         fn update_whitelisted_renewer(
