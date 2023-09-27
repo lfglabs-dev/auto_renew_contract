@@ -78,7 +78,15 @@ mod AutoRenewal {
         EnabledRenewal: EnabledRenewal,
         DisabledRenewal: DisabledRenewal,
         DomainRenewed: DomainRenewed,
+        OnDeployment: OnDeployment,
+        OnAdminUpdate: OnAdminUpdate,
+        OnTaxContractUpdate: OnTaxContractUpdate,
+        OnWhitelistedRenewerUpdate: OnWhitelistedRenewerUpdate,
+        OnToggleOff: OnToggleOff,
+        OnClaim: OnClaim,
     }
+
+    // regarding renewals
 
     #[derive(Drop, starknet::Event)]
     struct EnabledRenewal {
@@ -107,6 +115,42 @@ mod AutoRenewal {
         timestamp: u64,
     }
 
+    // misc events
+
+    #[derive(Drop, starknet::Event)]
+    struct OnDeployment {
+        naming_addr: ContractAddress,
+        erc20_addr: ContractAddress,
+        tax_addr: ContractAddress,
+        admin_addr: ContractAddress,
+        whitelisted_renewer: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct OnAdminUpdate {
+        new_admin: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct OnTaxContractUpdate {
+        new_tax_contract: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct OnWhitelistedRenewerUpdate {
+        new_whitelisted_renewer: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct OnToggleOff {}
+
+    #[derive(Drop, starknet::Event)]
+    struct OnClaim {
+        claimer: ContractAddress,
+        erc20: ContractAddress,
+        amount: u256
+    }
+
     //
     // Constructor
     //
@@ -130,6 +174,14 @@ mod AutoRenewal {
         // when moving funds, the storage variable won't be updated, saving gas
         IERC20CamelDispatcher { contract_address: erc20_addr }
             .approve(naming_addr, integer::BoundedInt::max());
+        self
+            .emit(
+                Event::OnDeployment(
+                    OnDeployment {
+                        naming_addr, erc20_addr, tax_addr, admin_addr, whitelisted_renewer
+                    }
+                )
+            );
     }
 
     #[external(v0)]
@@ -237,11 +289,16 @@ mod AutoRenewal {
             let temp_admin = self.temp_admin.read();
             assert(get_caller_address() == temp_admin, 'Caller not temp_admin');
             self.admin.write(temp_admin);
+            self.emit(Event::OnAdminUpdate(OnAdminUpdate { new_admin: temp_admin }));
         }
 
         fn update_tax_contract(ref self: ContractState, new_addr: ContractAddress,) {
             assert(get_caller_address() == self.admin.read(), 'Caller not admin');
             self.tax_contract.write(new_addr);
+            self
+                .emit(
+                    Event::OnTaxContractUpdate(OnTaxContractUpdate { new_tax_contract: new_addr })
+                );
         }
 
         fn update_whitelisted_renewer(
@@ -249,18 +306,26 @@ mod AutoRenewal {
         ) {
             assert(get_caller_address() == self.admin.read(), 'Caller not admin');
             self.whitelisted_renewer.write(whitelisted_renewer);
+            self
+                .emit(
+                    Event::OnWhitelistedRenewerUpdate(
+                        OnWhitelistedRenewerUpdate { new_whitelisted_renewer: whitelisted_renewer }
+                    )
+                );
         }
 
         fn toggle_off(ref self: ContractState) {
             assert(get_caller_address() == self.admin.read(), 'Caller not admin');
             self.can_renew.write(false);
+            self.emit(Event::OnToggleOff(OnToggleOff {}));
         }
 
         fn claim(ref self: ContractState, amount: u256) {
-            assert(get_caller_address() == self.admin.read(), 'Caller not admin');
+            let claimer = get_caller_address();
+            assert(claimer == self.admin.read(), 'Caller not admin');
             let erc20 = self.erc20_contract.read();
-            IERC20CamelDispatcher { contract_address: erc20 }
-                .transfer(get_caller_address(), amount);
+            IERC20CamelDispatcher { contract_address: erc20 }.transfer(claimer, amount);
+            self.emit(Event::OnClaim(OnClaim { claimer, erc20, amount }));
         }
     }
 
