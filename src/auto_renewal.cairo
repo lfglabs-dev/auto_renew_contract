@@ -34,7 +34,8 @@ trait IAutoRenewal<TContractState> {
         metadata: array::Span::<felt252>,
     );
 
-    fn update_admin(ref self: TContractState, new_admin: starknet::ContractAddress,);
+    fn start_admin_update(ref self: TContractState, new_admin: starknet::ContractAddress,);
+    fn confirm_admin_update(ref self: TContractState);
     fn update_tax_contract(ref self: TContractState, new_addr: starknet::ContractAddress,);
     fn update_whitelisted_renewer(
         ref self: TContractState, whitelisted_renewer: starknet::ContractAddress
@@ -58,6 +59,7 @@ mod AutoRenewal {
         erc20_contract: ContractAddress,
         tax_contract: ContractAddress,
         admin: ContractAddress,
+        temp_admin: ContractAddress,
         whitelisted_renewer: ContractAddress,
         can_renew: bool,
         // (renewer, domain, limit_price) -> 1 or 0
@@ -226,9 +228,15 @@ mod AutoRenewal {
         }
 
         // Admin function to update admin address and the tax contract address
-        fn update_admin(ref self: ContractState, new_admin: ContractAddress,) {
+        fn start_admin_update(ref self: ContractState, new_admin: ContractAddress,) {
             assert(get_caller_address() == self.admin.read(), 'Caller not admin');
-            self.admin.write(new_admin);
+            self.temp_admin.write(new_admin);
+        }
+
+        fn confirm_admin_update(ref self: ContractState) {
+            let temp_admin = self.temp_admin.read();
+            assert(get_caller_address() == temp_admin, 'Caller not temp_admin');
+            self.admin.write(temp_admin);
         }
 
         fn update_tax_contract(ref self: ContractState, new_addr: ContractAddress,) {
