@@ -112,6 +112,8 @@ mod AutoRenewal {
         renewer: ContractAddress,
         days: felt252,
         limit_price: u256,
+        tax_price: u256,
+        metadata: felt252,
         timestamp: u64,
     }
 
@@ -373,6 +375,8 @@ mod AutoRenewal {
                             renewer,
                             days: 365,
                             limit_price,
+                            tax_price,
+                            metadata,
                             timestamp: block_timestamp
                         }
                     )
