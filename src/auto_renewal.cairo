@@ -59,7 +59,7 @@ mod AutoRenewal {
         temp_admin: ContractAddress,
         whitelisted_renewer: ContractAddress,
         can_renew: bool,
-        // (renewer, domain, limit_price) -> 1 or 0
+        // (renewer, domain) -> limit_price
         renewing_allowance: LegacyMap::<(ContractAddress, felt252), u256>,
         // (renewer, domain) -> timestamp
         last_renewal: LegacyMap::<(ContractAddress, felt252), u64>,
@@ -213,7 +213,6 @@ mod AutoRenewal {
                 )
         }
 
-        // limit_price can be found via the EnabledRenewal events
         fn disable_renewals(ref self: ContractState, domain: felt252) {
             let caller = get_caller_address();
             self.renewing_allowance.write((caller, domain), 0);
