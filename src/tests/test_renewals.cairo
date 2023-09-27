@@ -310,6 +310,21 @@ fn test_renew_with_updated_whitelisted_renewer() {
 
 #[test]
 #[available_gas(20000000)]
+fn test_change_admin() {
+    // initialize contracts
+    let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
+
+    // buy TH0RGAL_DOMAIN for a year
+    testing::set_contract_address(ADMIN());
+    autorenewal.start_admin_update(OTHER());
+    testing::set_contract_address(OTHER());
+    autorenewal.confirm_admin_update();
+    // should succeed only if OTHER() is the new admin
+    autorenewal.toggle_off();
+}
+
+#[test]
+#[available_gas(20000000)]
 #[should_panic(expected: ('Caller not admin', 'ENTRYPOINT_FAILED',))]
 fn test_update_tax_addr_fail() {
     // initialize contracts
