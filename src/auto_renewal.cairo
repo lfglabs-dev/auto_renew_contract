@@ -209,6 +209,8 @@ mod AutoRenewal {
             );
             assert(domain.len() == renewer.len(), 'Domain & renewer mismatch len');
             assert(domain.len() == limit_price.len(), 'Domain & price mismatch len');
+            assert(domain.len() == tax_price.len(), 'Domain & tax_price mismatch len');
+            assert(domain.len() == metadata.len(), 'Domain & metadata mismatch len');
 
             let mut domain = domain;
             let mut renewer = renewer;
@@ -220,11 +222,11 @@ mod AutoRenewal {
                 if domain.len() == 0 {
                     break;
                 }
-                let _domain = domain.pop_front().expect('pop_front error');
-                let _renewer = renewer.pop_front().expect('pop_front error');
-                let _limit_price = limit_price.pop_front().expect('pop_front error');
-                let _tax_price = tax_price.pop_front().expect('pop_front error');
-                let _metadata = metadata.pop_front().expect('pop_front error');
+                let _domain = domain.pop_front().unwrap();
+                let _renewer = renewer.pop_front().unwrap();
+                let _limit_price = limit_price.pop_front().unwrap();
+                let _tax_price = tax_price.pop_front().unwrap();
+                let _metadata = metadata.pop_front().unwrap();
                 self._renew(*_domain, *_renewer, *_limit_price, *_tax_price, *_metadata);
             }
         }
