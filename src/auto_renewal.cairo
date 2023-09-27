@@ -130,7 +130,7 @@ mod AutoRenewal {
         self.admin.write(admin_addr);
         self.whitelisted_renewer.write(whitelisted_renewer);
         self.can_renew.write(true);
-        // allowing naming 2^251-1, aka infinite approval according to its implementation
+        // allowing naming 2^256-1, aka infinite approval according to its implementation
         // when moving funds, the storage variable won't be updated, saving gas
         IERC20CamelDispatcher { contract_address: erc20_addr }
             .approve(naming_addr, integer::BoundedInt::max());
