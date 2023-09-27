@@ -41,13 +41,13 @@ fn test_toggle_renewal() {
     starknetid.mint(token_id);
     naming.buy(token_id, TH0RGAL_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, 0);
 
-    // Should test autorenewal has been toggled for TH0RGAL_DOMAIN by USER() for limit_price
-    let limit_price: u256 = 600.into();
-    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), limit_price, 0);
+    // Should test autorenewal has been toggled for TH0RGAL_DOMAIN by USER() for allowance
+    let allowance: u256 = 600.into();
+    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), allowance, 0);
     let renew = autorenewal.get_renewing_allowance(TH0RGAL_DOMAIN(), ADMIN());
-    assert(renew == limit_price, 'renew should be true');
+    assert(renew == allowance, 'renew should be true');
 
-    // Should test autorenewal has been untoggled for OTHER_DOMAIN by USER() for limit_price
+    // Should test autorenewal has been untoggled for OTHER_DOMAIN by USER() for allowance
     autorenewal.disable_renewals(TH0RGAL_DOMAIN());
     let renew = autorenewal.get_renewing_allowance(TH0RGAL_DOMAIN(), ADMIN());
     assert(renew == 0, 'renew should be false');
@@ -109,7 +109,7 @@ fn test_renew_fail_not_toggled() {
 #[should_panic(
     expected: ('u256_sub Overflow', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED')
 )]
-fn test_renew_fail_wrong_limit_price() {
+fn test_renew_fail_wrong_allowance() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
     let token_id: u128 = 1;
@@ -124,7 +124,7 @@ fn test_renew_fail_wrong_limit_price() {
 
     testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
-    // Toggle renewal for a limit_price
+    // Toggle renewal for a allowance
     let lower_price: u256 = 300.into();
     autorenewal.enable_renewals(TH0RGAL_DOMAIN(), lower_price, 0);
     erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
@@ -242,12 +242,12 @@ fn test_renew_with_metadata() {
     // buy TH0RGAL_DOMAIN & OTHER_DOMAIN
     testing::set_contract_address(ADMIN());
     let (_, price) = pricing.compute_buy_price(7, 365);
-    let limit_price = price + tax_price;
-    erc20.approve(naming.contract_address, limit_price);
+    let allowance = price + tax_price;
+    erc20.approve(naming.contract_address, allowance);
     starknetid.mint(token_id);
     naming.buy(token_id, TH0RGAL_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, metadata);
 
-    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), limit_price, metadata);
+    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), allowance, metadata);
     erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
 
     testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());

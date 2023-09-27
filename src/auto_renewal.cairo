@@ -59,7 +59,7 @@ mod AutoRenewal {
         temp_admin: ContractAddress,
         whitelisted_renewer: ContractAddress,
         can_renew: bool,
-        // (renewer, domain) -> limit_price
+        // (renewer, domain) -> allowance
         renewing_allowance: LegacyMap::<(ContractAddress, felt252), u256>,
         // (renewer, domain) -> timestamp
         last_renewal: LegacyMap::<(ContractAddress, felt252), u64>,
@@ -336,12 +336,12 @@ mod AutoRenewal {
             metadata: felt252,
         ) {
             let naming = self.naming_contract.read();
-            let limit_price = self.renewing_allowance.read((renewer, root_domain));
+            let allowance = self.renewing_allowance.read((renewer, root_domain));
             let total_price = domain_price + tax_price;
-            // We keep the ability to specify a domain_price inferior to the limit price
+            // We keep the ability to specify a domain_price inferior to the allowance
             // in case we lowered the prices of stark domains and don't want to debit
             // users more than they need even though they allowed us to do so.
-            assert(limit_price >= domain_price, 'Renewal allowance insufficient');
+            assert(allowance >= domain_price, 'Renewal allowance insufficient');
 
             // Check domain has not been renew yet this year
             let block_timestamp = get_block_timestamp();
@@ -379,7 +379,7 @@ mod AutoRenewal {
             let erc20 = self.erc20_contract.read();
             let _tax_contract = self.tax_contract.read();
 
-            // Transfer limit_price (including tax), will be canceled if the tx fails
+            // Transfer allowance (including tax), will be canceled if the tx fails
             IERC20CamelDispatcher { contract_address: erc20 }
                 .transferFrom(renewer, contract, total_price);
             // transfer tax price to tax contract address
