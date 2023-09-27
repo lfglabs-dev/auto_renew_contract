@@ -48,13 +48,7 @@ mod AutoRenewal {
     use starknet::ContractAddress;
     use starknet::{get_caller_address, get_contract_address, get_block_timestamp};
     use starknet::contract_address::ContractAddressZeroable;
-    use traits::{TryInto, Into};
-    use option::OptionTrait;
     use array::ArrayTrait;
-    use integer::u64_try_from_felt252;
-
-    use debug::PrintTrait;
-
     use openzeppelin::token::erc20::interface::{IERC20CamelDispatcher, IERC20CamelDispatcherTrait};
     use naming::interface::naming::{INamingDispatcher, INamingDispatcherTrait};
 
