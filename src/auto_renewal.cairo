@@ -17,16 +17,18 @@ trait IAutoRenewal<TContractState> {
         ref self: TContractState,
         root_domain: felt252,
         renewer: starknet::ContractAddress,
+        domain_price: u256,
         tax_price: u256,
         metadata: felt252,
     );
 
     fn batch_renew(
         ref self: TContractState,
-        domain: array::Span::<felt252>,
-        renewer: array::Span::<starknet::ContractAddress>,
-        tax_price: array::Span::<u256>,
-        metadata: array::Span::<felt252>,
+        domains: array::Span::<felt252>,
+        renewers: array::Span::<starknet::ContractAddress>,
+        domain_prices: array::Span::<u256>,
+        tax_prices: array::Span::<u256>,
+        metadatas: array::Span::<felt252>,
     );
 
     fn start_admin_update(ref self: TContractState, new_admin: starknet::ContractAddress,);
@@ -105,7 +107,7 @@ mod AutoRenewal {
         domain: felt252,
         renewer: ContractAddress,
         days: felt252,
-        limit_price: u256,
+        domain_price: u256,
         tax_price: u256,
         metadata: felt252,
         timestamp: u64,
@@ -223,6 +225,7 @@ mod AutoRenewal {
             ref self: ContractState,
             root_domain: felt252,
             renewer: ContractAddress,
+            domain_price: u256,
             tax_price: u256,
             metadata: felt252,
         ) {
@@ -230,38 +233,42 @@ mod AutoRenewal {
             assert(
                 get_caller_address() == self.whitelisted_renewer.read(), 'You are not whitelisted'
             );
-            self._renew(root_domain, renewer, tax_price, metadata);
+            self._renew(root_domain, renewer, domain_price, tax_price, metadata);
         }
 
         fn batch_renew(
             ref self: ContractState,
-            domain: array::Span::<felt252>,
-            renewer: array::Span::<starknet::ContractAddress>,
-            tax_price: array::Span::<u256>,
-            metadata: array::Span::<felt252>,
+            domains: array::Span::<felt252>,
+            renewers: array::Span::<starknet::ContractAddress>,
+            domain_prices: array::Span::<u256>,
+            tax_prices: array::Span::<u256>,
+            metadatas: array::Span::<felt252>,
         ) {
             assert(self.can_renew.read(), 'Contract is disabled');
             assert(
                 get_caller_address() == self.whitelisted_renewer.read(), 'You are not whitelisted'
             );
-            assert(domain.len() == renewer.len(), 'Domain & renewer mismatch len');
-            assert(domain.len() == tax_price.len(), 'Domain & tax_price mismatch len');
-            assert(domain.len() == metadata.len(), 'Domain & metadata mismatch len');
+            assert(domains.len() == renewers.len(), 'Domain & renewers mismatch len');
+            assert(domains.len() == domain_prices.len(), 'Domain & prices mismatch len');
+            assert(domains.len() == tax_prices.len(), 'Domain & taxes mismatch len');
+            assert(domains.len() == metadatas.len(), 'Domain & metadatas mismatch len');
 
-            let mut domain = domain;
-            let mut renewer = renewer;
-            let mut tax_price = tax_price;
-            let mut metadata = metadata;
+            let mut domains = domains;
+            let mut renewers = renewers;
+            let mut domain_prices = domain_prices;
+            let mut tax_prices = tax_prices;
+            let mut metadatas = metadatas;
 
             loop {
-                if domain.len() == 0 {
+                if domains.len() == 0 {
                     break;
                 }
-                let _domain = domain.pop_front().unwrap();
-                let _renewer = renewer.pop_front().unwrap();
-                let _tax_price = tax_price.pop_front().unwrap();
-                let _metadata = metadata.pop_front().unwrap();
-                self._renew(*_domain, *_renewer, *_tax_price, *_metadata);
+                let domain = domains.pop_front().unwrap();
+                let renewer = renewers.pop_front().unwrap();
+                let domain_price = domain_prices.pop_front().unwrap();
+                let tax_price = tax_prices.pop_front().unwrap();
+                let metadata = metadatas.pop_front().unwrap();
+                self._renew(*domain, *renewer, *domain_price, *tax_price, *metadata);
             }
         }
 
@@ -325,12 +332,17 @@ mod AutoRenewal {
             ref self: ContractState,
             root_domain: felt252,
             renewer: ContractAddress,
+            domain_price: u256,
             tax_price: u256,
             metadata: felt252,
         ) {
             let naming = self.naming_contract.read();
             let limit_price = self.renewing_allowance.read((renewer, root_domain));
-            assert(limit_price != 0, 'Renewal not toggled for domain');
+            let total_price = domain_price + tax_price;
+            // We keep the ability to specify a domain_price inferior to the limit price
+            // in case we lowered the prices of stark domains and don't want to debit
+            // users more than they need even though they allowed us to do so.
+            assert(limit_price >= domain_price, 'Renewal allowance insufficient');
 
             // Check domain has not been renew yet this year
             let block_timestamp = get_block_timestamp();
@@ -357,7 +369,7 @@ mod AutoRenewal {
                             domain: root_domain,
                             renewer,
                             days: 365,
-                            limit_price,
+                            domain_price,
                             tax_price,
                             metadata,
                             timestamp: block_timestamp
@@ -370,7 +382,7 @@ mod AutoRenewal {
 
             // Transfer limit_price (including tax), will be canceled if the tx fails
             IERC20CamelDispatcher { contract_address: erc20 }
-                .transferFrom(renewer, contract, limit_price);
+                .transferFrom(renewer, contract, total_price);
             // transfer tax price to tax contract address
             IERC20CamelDispatcher { contract_address: erc20 }.transfer(_tax_contract, tax_price);
             // spend the remaining money to renew the domain
