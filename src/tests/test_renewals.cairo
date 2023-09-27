@@ -44,13 +44,13 @@ fn test_toggle_renewal() {
     // Should test autorenewal has been toggled for TH0RGAL_DOMAIN by USER() for limit_price
     let limit_price: u256 = 600.into();
     autorenewal.enable_renewals(TH0RGAL_DOMAIN(), limit_price, 0);
-    let renew = autorenewal.is_renewing(TH0RGAL_DOMAIN(), ADMIN(), limit_price);
-    assert(renew, 'renew should be true');
+    let renew = autorenewal.get_renewing_allowance(TH0RGAL_DOMAIN(), ADMIN());
+    assert(renew == limit_price, 'renew should be true');
 
     // Should test autorenewal has been untoggled for OTHER_DOMAIN by USER() for limit_price
-    autorenewal.disable_renewals(TH0RGAL_DOMAIN(), limit_price);
-    let renew = autorenewal.is_renewing(TH0RGAL_DOMAIN(), ADMIN(), limit_price);
-    assert(!renew, 'renew should be false');
+    autorenewal.disable_renewals(TH0RGAL_DOMAIN());
+    let renew = autorenewal.get_renewing_allowance(TH0RGAL_DOMAIN(), ADMIN());
+    assert(renew == 0, 'renew should be false');
 }
 
 #[test]
@@ -78,7 +78,7 @@ fn test_renew_domain() {
     let expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
     assert(expiry == (86400 * 365) + BLOCK_TIMESTAMP().into(), 'expiry should be 365 days');
 
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, 0, 0);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), 0, 0);
 
     let new_expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
     let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
@@ -101,7 +101,7 @@ fn test_renew_fail_not_toggled() {
     naming.buy(token_id, TH0RGAL_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, 0);
 
     // Should revert because ADMIN() has not toggled renewals for TH0RGAL_DOMAIN
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, 0, 0);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), 0, 0);
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn test_renew_fail_wrong_limit_price() {
     erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
 
     // Should revert because price of renewing domain is higher than limit price
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), lower_price, 0, 0);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), 0, 0);
 }
 
 #[test]
@@ -153,7 +153,7 @@ fn test_renew_fail_expiry() {
     erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
 
     // Should revert because TH0RGAL_DOMAIN will not expire within a month
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, 0, 0);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), 0, 0);
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn test_renew_expired_domain() {
     assert(expiry < BLOCK_TIMESTAMP_EXPIRED().into(), 'domain should be expired');
 
     // Should renew TH0RGAL_DOMAIN for a year even if it is expired
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, 0, 0);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), 0, 0);
     let new_expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
     let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_EXPIRED().into()).into();
     assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
@@ -216,7 +216,6 @@ fn test_renew_domains() {
         .batch_renew(
             array![TH0RGAL_DOMAIN(), OTHER_DOMAIN()].span(),
             array![ADMIN(), ADMIN()].span(),
-            array![price, price].span(),
             array![0, 0].span(),
             array![0, 0].span()
         );
@@ -253,7 +252,7 @@ fn test_renew_with_metadata() {
     testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // Should renew domain & send tax price to tax contract
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), limit_price, tax_price, metadata);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), tax_price, metadata);
     let tax_balance = erc20.balanceOf(tax_contract);
     assert(tax_balance == tax_price, 'tax balance should be 100');
 }
@@ -301,7 +300,7 @@ fn test_renew_with_updated_whitelisted_renewer() {
     let new_renewer = contract_address_const::<0x456>();
     autorenewal.update_whitelisted_renewer(new_renewer);
     testing::set_contract_address(new_renewer);
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, 0, 0);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), 0, 0);
 
     let new_expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
     let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
@@ -397,5 +396,5 @@ fn test_renew_disabled_contract_fails() {
 
     autorenewal.toggle_off();
 
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, 0, 0);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), 0, 0);
 }
