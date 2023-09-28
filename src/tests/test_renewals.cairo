@@ -41,16 +41,16 @@ fn test_toggle_renewal() {
     starknetid.mint(token_id);
     naming.buy(token_id, TH0RGAL_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, 0);
 
-    // Should test autorenewal has been toggled for TH0RGAL_DOMAIN by USER() for limit_price
-    let limit_price: u256 = 600.into();
-    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), limit_price, 0);
-    let renew = autorenewal.is_renewing(TH0RGAL_DOMAIN(), ADMIN(), limit_price);
-    assert(renew, 'renew should be true');
+    // Should test autorenewal has been toggled for TH0RGAL_DOMAIN by USER() for allowance
+    let allowance: u256 = 600.into();
+    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), allowance, 0);
+    let renew = autorenewal.get_renewing_allowance(TH0RGAL_DOMAIN(), ADMIN());
+    assert(renew == allowance, 'renew should be true');
 
-    // Should test autorenewal has been untoggled for OTHER_DOMAIN by USER() for limit_price
-    autorenewal.disable_renewals(TH0RGAL_DOMAIN(), limit_price);
-    let renew = autorenewal.is_renewing(TH0RGAL_DOMAIN(), ADMIN(), limit_price);
-    assert(!renew, 'renew should be false');
+    // Should test autorenewal has been untoggled for OTHER_DOMAIN by USER() for allowance
+    autorenewal.disable_renewals(TH0RGAL_DOMAIN());
+    let renew = autorenewal.get_renewing_allowance(TH0RGAL_DOMAIN(), ADMIN());
+    assert(renew == 0, 'renew should be false');
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_renew_domain() {
 
 #[test]
 #[available_gas(20000000)]
-#[should_panic(expected: ('Renewal not toggled for domain', 'ENTRYPOINT_FAILED',))]
+#[should_panic(expected: ('Renewal allowance insufficient', 'ENTRYPOINT_FAILED',))]
 fn test_renew_fail_not_toggled() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
@@ -109,7 +109,7 @@ fn test_renew_fail_not_toggled() {
 #[should_panic(
     expected: ('u256_sub Overflow', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED', 'ENTRYPOINT_FAILED')
 )]
-fn test_renew_fail_wrong_limit_price() {
+fn test_renew_fail_wrong_allowance() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
     let token_id: u128 = 1;
@@ -124,7 +124,7 @@ fn test_renew_fail_wrong_limit_price() {
 
     testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
-    // Toggle renewal for a limit_price
+    // Toggle renewal for a allowance
     let lower_price: u256 = 300.into();
     autorenewal.enable_renewals(TH0RGAL_DOMAIN(), lower_price, 0);
     erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
@@ -242,18 +242,18 @@ fn test_renew_with_metadata() {
     // buy TH0RGAL_DOMAIN & OTHER_DOMAIN
     testing::set_contract_address(ADMIN());
     let (_, price) = pricing.compute_buy_price(7, 365);
-    let limit_price = price + tax_price;
-    erc20.approve(naming.contract_address, limit_price);
+    let allowance = price + tax_price;
+    erc20.approve(naming.contract_address, allowance);
     starknetid.mint(token_id);
     naming.buy(token_id, TH0RGAL_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, metadata);
 
-    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), limit_price, metadata);
+    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), allowance, metadata);
     erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
 
     testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
 
     // Should renew domain & send tax price to tax contract
-    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), limit_price, tax_price, metadata);
+    autorenewal.renew(TH0RGAL_DOMAIN(), ADMIN(), price, tax_price, metadata);
     let tax_balance = erc20.balanceOf(tax_contract);
     assert(tax_balance == tax_price, 'tax balance should be 100');
 }
@@ -306,6 +306,21 @@ fn test_renew_with_updated_whitelisted_renewer() {
     let new_expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
     let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
     assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
+}
+
+#[test]
+#[available_gas(20000000)]
+fn test_change_admin() {
+    // initialize contracts
+    let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
+
+    // change admin
+    testing::set_contract_address(ADMIN());
+    autorenewal.start_admin_update(OTHER());
+    testing::set_contract_address(OTHER());
+    autorenewal.confirm_admin_update();
+    // should succeed only if OTHER() is the new admin
+    autorenewal.toggle_off();
 }
 
 #[test]
