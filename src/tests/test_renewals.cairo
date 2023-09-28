@@ -314,7 +314,7 @@ fn test_change_admin() {
     // initialize contracts
     let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
 
-    // buy TH0RGAL_DOMAIN for a year
+    // change admin
     testing::set_contract_address(ADMIN());
     autorenewal.start_admin_update(OTHER());
     testing::set_contract_address(OTHER());
