@@ -341,7 +341,7 @@ mod AutoRenewal {
             // We keep the ability to specify a domain_price inferior to the allowance
             // in case we lowered the prices of stark domains and don't want to debit
             // users more than they need even though they allowed us to do so.
-            assert(allowance >= domain_price, 'Renewal allowance insufficient');
+            assert(allowance >= total_price, 'Renewal allowance insufficient');
 
             // Check domain has not been renew yet this year
             let block_timestamp = get_block_timestamp();
