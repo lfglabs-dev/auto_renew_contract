@@ -12,8 +12,10 @@ use super::constants::{
     BLOCK_TIMESTAMP_EXPIRED
 };
 
-use super::mocks::identity::Identity;
-use super::mocks::identity::{IIdentityDispatcher, IIdentityDispatcherTrait};
+use identity::{
+    identity::main::Identity,
+    interface::identity::{IIdentity, IIdentityDispatcher, IIdentityDispatcherTrait}
+};
 use super::mocks::erc20::ERC20;
 use openzeppelin::token::erc20::interface::{
     IERC20Camel, IERC20CamelDispatcher, IERC20CamelDispatcherTrait

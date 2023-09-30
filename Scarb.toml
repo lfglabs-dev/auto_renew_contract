@@ -4,6 +4,7 @@ version = "0.1.0"
 
 [dependencies]
 starknet = "2.2.0"
+identity = { git = "https://github.com/starknet-id/identity.git", branch = "master" }
 naming = { git = "https://github.com/starknet-id/naming.git", branch = "master" }
 openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", branch = "main" }
 
