@@ -10,6 +10,13 @@ Here are the guarantees offered by this contract:
 
 This contract is not upgradeable, we cannot change its code. This means that even if we wanted to be dishonest, we could not circumvent these rules.
 
+## Audits
+
+For additional trust and transparency, this contract has been audited by independent third-party security firms. You can view the audit reports below:
+
+- [ChainSecurity Audit](./audits/chainsecurity.pdf)
+- [Nethermind Audit](./audits/nethermind.pdf)
+
 # Technical notes
 
 Here are some technical choices we made:
