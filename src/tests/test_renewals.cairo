@@ -87,6 +87,54 @@ fn test_renew_domain() {
     assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
 }
 
+
+#[test]
+#[available_gas(20000000)]
+fn test_batch_renew_domain() {
+    // initialize contracts
+    let (erc20, pricing, starknetid, naming, autorenewal) = deploy_contracts();
+    testing::set_block_timestamp(BLOCK_TIMESTAMP());
+    let token_id1: u128 = 1;
+    let token_id2: u128 = 2;
+
+    // buy TH0RGAL_DOMAIN for a year
+    testing::set_contract_address(ADMIN());
+    let (_, price) = pricing.compute_buy_price(7, 365);
+    erc20.approve(naming.contract_address, 2 * price);
+    starknetid.mint(token_id1);
+    naming.buy(token_id1, TH0RGAL_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, 0);
+    starknetid.mint(token_id2);
+    naming.buy(token_id2, OTHER_DOMAIN(), 365_u16, ZERO(), ZERO(), 0, 0);
+
+    testing::set_block_timestamp(BLOCK_TIMESTAMP_ADD());
+
+    // Toggle renewal & approve ERC20 transfer
+    autorenewal.enable_renewals(TH0RGAL_DOMAIN(), price, 0);
+    autorenewal.enable_renewals(OTHER_DOMAIN(), price, 0);
+    erc20.approve(autorenewal.contract_address, integer::BoundedInt::max());
+
+    // Should test renewing TH0RGAL_DOMAIN for a year
+    let expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
+    assert(expiry == (86400 * 365) + BLOCK_TIMESTAMP().into(), 'expiry should be 365 days');
+
+    autorenewal
+        .batch_renew(
+            array![TH0RGAL_DOMAIN(), OTHER_DOMAIN()].span(),
+            array![ADMIN(), ADMIN()].span(),
+            array![price, price].span(),
+            array![0, 0].span(),
+            array![0, 0].span()
+        );
+
+    let new_expiry = naming.domain_to_data(array![TH0RGAL_DOMAIN()].span()).expiry;
+    let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
+    assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
+
+    let new_expiry = naming.domain_to_data(array![OTHER_DOMAIN()].span()).expiry;
+    let limit: u256 = ((86400 * 345) + BLOCK_TIMESTAMP_ADD().into()).into();
+    assert(new_expiry.into() >= limit, 'new expiry should be 365 days');
+}
+
 #[test]
 #[available_gas(20000000)]
 #[should_panic(expected: ('Renewal allowance insufficient', 'ENTRYPOINT_FAILED',))]
