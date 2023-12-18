@@ -1,4 +1,5 @@
 migrations/*.json
+Scarb.lock
 
 ### keys ###
 .key

@@ -33,7 +33,7 @@ fn deploy_contracts() -> (
     // pricing
     let pricing = utils::deploy(Pricing::TEST_CLASS_HASH, array![eth.into()]);
     // identity
-    let identity = utils::deploy(Identity::TEST_CLASS_HASH, ArrayTrait::<felt252>::new());
+    let identity = utils::deploy(Identity::TEST_CLASS_HASH, array![ADMIN().into(), 0]);
     // naming
     let naming = utils::deploy(
         Naming::TEST_CLASS_HASH, array![identity.into(), pricing.into(), 0, ADMIN().into()]

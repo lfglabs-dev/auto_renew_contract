@@ -55,17 +55,6 @@ mod ERC20 {
 
     #[external(v0)]
     impl ERC20Impl of IERC20<ContractState> {
-        fn name(self: @ContractState) -> felt252 {
-            self._name.read()
-        }
-
-        fn symbol(self: @ContractState) -> felt252 {
-            self._symbol.read()
-        }
-
-        fn decimals(self: @ContractState) -> u8 {
-            18
-        }
 
         fn total_supply(self: @ContractState) -> u256 {
             self._total_supply.read()
