@@ -3,7 +3,7 @@ name = "auto_renew_contract"
 version = "0.1.0"
 
 [dependencies]
-starknet = "2.2.0"
+starknet = "2.3.1"
 identity = { git = "https://github.com/starknet-id/identity.git", rev = "eb37846330b78e1410cf5e3e17a5dcca5652f921" }
 naming = { git = "https://github.com/starknet-id/naming.git", rev = "7edd27a0b5aa0c7118b5d5995c05e05ae4624d29" }
 openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", rev = "f3e2a5f0547a429c716f32471b06df729cbdfb9f" }
